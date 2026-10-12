@@ -1,0 +1,12 @@
+# Local Python environment. Each machine creates its own.
+backend/.venv/
+
+# Python cache files created when the app runs.
+__pycache__/
+*.py[cod]
+
+# macOS folder metadata.
+.DS_Store
+
+# SQLite database. It will be created in a later block.
+backend/moneymap.db
