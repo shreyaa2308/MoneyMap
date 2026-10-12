@@ -5,8 +5,12 @@ backend/.venv/
 __pycache__/
 *.py[cod]
 
+# JavaScript dependencies and build output.
+node_modules/
+dist/
+
 # macOS folder metadata.
 .DS_Store
 
-# SQLite database. It will be created in a later block.
+# Created when the backend starts. Each machine has its own copy.
 backend/moneymap.db
