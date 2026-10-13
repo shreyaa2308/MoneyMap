@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router-dom'
 import AppShell from './components/AppShell.jsx'
 import AccountsPage from './pages/AccountsPage.jsx'
+import AssistantPage from './pages/AssistantPage.jsx'
 import BillsPage from './pages/BillsPage.jsx'
 import DashboardPage from './pages/DashboardPage.jsx'
 import HomePage from './pages/HomePage.jsx'
@@ -18,6 +19,7 @@ export default function App() {
         <Route path="/accounts" element={<AccountsPage />} />
         <Route path="/investments" element={<InvestmentsPage />} />
         <Route path="/bills" element={<BillsPage />} />
+        <Route path="/assistant" element={<AssistantPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/transactions" element={<TransactionsPage />} />

@@ -38,34 +38,51 @@ export default function HomePage() {
   }, [])
 
   return (
-    <main className="mx-auto flex min-h-[70vh] max-w-3xl flex-col justify-center px-6 py-16">
-      <p className="text-sm font-medium tracking-wide text-teal-800">Personal finance</p>
-      <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">MoneyMap</h1>
-      <p className="mt-4 max-w-xl text-lg leading-relaxed text-slate-600">
-        Track accounts, transactions, budgets, bills, and manual investments on this computer.
-      </p>
-      <div className="mt-6 flex flex-wrap gap-3">
-        {token ? (
-          <>
-            <Link to="/dashboard" className="rounded-md bg-teal-800 px-4 py-2 text-sm font-medium text-white">
-              Open dashboard
-            </Link>
-            <Link to="/transactions" className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium">
-              View transactions
-            </Link>
-          </>
-        ) : (
-          <>
-            <Link to="/login" className="rounded-md bg-teal-800 px-4 py-2 text-sm font-medium text-white">
-              Log in
-            </Link>
-            <Link to="/register" className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium">
-              Register
-            </Link>
-          </>
-        )}
-      </div>
-      <p className="mt-6 text-sm text-slate-500">Backend: {backendStatus}</p>
+    <main className="page flex min-h-[70vh] items-center">
+      <section className="grid w-full gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
+        <div>
+          <p className="eyebrow">Personal finance</p>
+          <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-6xl">MoneyMap</h1>
+          <p className="mt-4 max-w-xl text-lg leading-relaxed text-muted">
+            Track accounts, transactions, budgets, bills, and manual investments on this computer.
+            The assistant explains those saved records. It does not connect to a bank.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            {token ? (
+              <>
+                <Link to="/dashboard" className="btn btn-primary">
+                  Open dashboard
+                </Link>
+                <Link to="/transactions" className="btn btn-secondary">
+                  View transactions
+                </Link>
+                <Link to="/assistant" className="btn btn-secondary">
+                  Ask the assistant
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link to="/login" className="btn btn-primary">
+                  Log in
+                </Link>
+                <Link to="/register" className="btn btn-secondary">
+                  Register
+                </Link>
+              </>
+            )}
+          </div>
+          <p className="mt-6 text-sm text-faint">Backend: {backendStatus}</p>
+        </div>
+        <aside className="card bg-navy text-white">
+          <p className="text-sm text-white/70">On this computer</p>
+          <p className="money mt-3 text-3xl font-semibold">Accounts, cash flow, and bills in one place.</p>
+          <ul className="mt-6 space-y-3 text-sm text-white/80">
+            <li>Income in green, spending kept separate from budget limits.</li>
+            <li>Manual transactions and a bank-statement CSV preview.</li>
+            <li>A read-only assistant that explains saved totals.</li>
+          </ul>
+        </aside>
+      </section>
     </main>
   )
 }

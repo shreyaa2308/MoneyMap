@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth.js'
 
-const fieldClass = 'mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2'
+const fieldClass = 'field'
 
 export default function RegisterPage() {
   const { login } = useAuth()
@@ -11,10 +11,15 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [pending, setPending] = useState(false)
 
   async function onSubmit(event) {
     event.preventDefault()
+    if (pending) {
+      return
+    }
     setError('')
+    setPending(true)
     try {
       const data = await api('/api/auth/register', {
         method: 'POST',
@@ -24,13 +29,15 @@ export default function RegisterPage() {
       navigate('/transactions')
     } catch (err) {
       setError(err.message)
+    } finally {
+      setPending(false)
     }
   }
 
   return (
-    <main className="mx-auto max-w-md px-4 py-12 sm:px-6">
-      <h1 className="text-3xl font-semibold">Create an account</h1>
-      <p className="mt-2 text-slate-600">
+    <main className="page page-narrow">
+      <h1 className="page-title">Create an account</h1>
+      <p className="lede">
         Your password is stored on this computer as a hash, not as plain text.
       </p>
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
@@ -57,16 +64,17 @@ export default function RegisterPage() {
             required
           />
         </label>
-        {error ? <p className="text-sm text-rose-700">{error}</p> : null}
+        {error ? <p className="alert-error">{error}</p> : null}
         <button
           type="submit"
-          className="w-full rounded-md bg-teal-800 px-4 py-2 font-medium text-white"
+          disabled={pending}
+          className="btn btn-primary w-full"
         >
-          Register
+          {pending ? 'Creating account…' : 'Register'}
         </button>
       </form>
-      <p className="mt-4 text-sm text-slate-600">
-        Already registered? <Link to="/login" className="text-teal-800">Log in</Link>
+      <p className="mt-4 text-sm text-muted">
+        Already registered? <Link to="/login" className="text-pine">Log in</Link>
       </p>
     </main>
   )

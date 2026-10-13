@@ -93,6 +93,57 @@ def test_bill_status_and_explicit_payment(client):
     assert client.get("/api/transactions", headers=headers).json()[0]["description"] == "Stream"
 
 
+def test_deleting_a_paid_bill_transaction_removes_the_payment(client):
+    headers = register(client, "ada@example.com")
+    category_id = expense_category(client, headers)
+    account_id = client.get("/api/accounts", headers=headers).json()[0]["id"]
+    due_on = str(date.today())
+    created = client.post(
+        "/api/bills",
+        headers=headers,
+        json={
+            "name": "Stream",
+            "amount_cents": 500,
+            "frequency": "monthly",
+            "category_id": category_id,
+            "next_due_on": due_on,
+        },
+    )
+    bill = created.json()
+    paid = client.post(f"/api/bills/{bill['id']}/pay", headers=headers, json={"account_id": account_id})
+    transaction_id = paid.json()["id"]
+    advanced_due = client.get("/api/bills", headers=headers).json()[0]["next_due_on"]
+    assert advanced_due != due_on
+    assert client.get("/api/accounts", headers=headers).json()[0]["balance_cents"] == -500
+
+    income_id = next(
+        category["id"]
+        for category in client.get("/api/categories", headers=headers).json()
+        if category["kind"] == "income"
+    )
+    flipped = client.put(
+        f"/api/transactions/{transaction_id}",
+        headers=headers,
+        json={
+            "account_id": account_id,
+            "category_id": income_id,
+            "amount_cents": 500,
+            "direction": "income",
+            "description": "Stream",
+            "occurred_on": due_on,
+        },
+    )
+    assert flipped.status_code == 400
+    assert client.get("/api/accounts", headers=headers).json()[0]["balance_cents"] == -500
+    assert len(client.get("/api/bills/payments", headers=headers).json()) == 1
+
+    assert client.delete(f"/api/transactions/{transaction_id}", headers=headers).status_code == 204
+    assert client.get("/api/transactions", headers=headers).json() == []
+    assert client.get("/api/bills/payments", headers=headers).json() == []
+    assert client.get("/api/accounts", headers=headers).json()[0]["balance_cents"] == 0
+    assert client.get("/api/bills", headers=headers).json()[0]["next_due_on"] == advanced_due
+
+
 def test_bills_are_private(client):
     ada = register(client, "ada@example.com")
     bea = register(client, "bea@example.com")

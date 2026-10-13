@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.models import Account, Category, Transaction, User
+from app.models import Account, BillPayment, Category, Transaction, User
 from app.routers.auth import get_current_user
 from app.schemas import (
     AccountResponse,
@@ -63,6 +65,26 @@ def require_matching_category(category, direction):
         )
 
 
+def save(db):
+    """Commit related row changes together, or roll them all back."""
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="That change could not be saved.",
+        ) from None
+
+
+def linked_payments(db, user, transaction_id):
+    return (
+        db.query(BillPayment)
+        .filter(BillPayment.user_id == user.id, BillPayment.transaction_id == transaction_id)
+        .all()
+    )
+
+
 def to_response(transaction):
     category = transaction.category
     return TransactionResponse(
@@ -104,9 +126,23 @@ def create_category(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    existing = (
+        db.query(Category)
+        .filter(
+            Category.user_id == user.id,
+            func.lower(Category.name) == body.name.lower(),
+            Category.kind == body.kind,
+        )
+        .one_or_none()
+    )
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="You already have a category with that name",
+        )
     category = Category(user_id=user.id, name=body.name, kind=body.kind)
     db.add(category)
-    db.commit()
+    save(db)
     db.refresh(category)
     return category
 
@@ -164,7 +200,7 @@ def create_transaction(
     )
     account.balance_cents += amount
     db.add(transaction)
-    db.commit()
+    save(db)
     db.refresh(transaction)
     return to_response(transaction)
 
@@ -181,6 +217,12 @@ def update_transaction(
     category = owned_category(db, user, body.category_id)
     require_matching_category(category, body.direction)
     new_amount = signed_amount(body.amount_cents, body.direction)
+    payments = linked_payments(db, user, transaction.id)
+    if payments and new_amount >= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This transaction records a bill payment, so it has to stay an expense.",
+        )
     old_amount = transaction.amount_cents
     old_account = transaction.account
 
@@ -195,7 +237,9 @@ def update_transaction(
     transaction.amount_cents = new_amount
     transaction.description = body.description
     transaction.occurred_on = body.occurred_on
-    db.commit()
+    for payment in payments:
+        payment.amount_cents = -new_amount
+    save(db)
     db.refresh(transaction)
     return to_response(transaction)
 
@@ -207,7 +251,12 @@ def delete_transaction(
     db: Session = Depends(get_db),
 ):
     transaction = owned_transaction(db, user, transaction_id)
+    (
+        db.query(BillPayment)
+        .filter(BillPayment.user_id == user.id, BillPayment.transaction_id == transaction.id)
+        .delete(synchronize_session=False)
+    )
     transaction.account.balance_cents -= transaction.amount_cents
     db.delete(transaction)
-    db.commit()
+    save(db)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

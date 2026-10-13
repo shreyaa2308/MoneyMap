@@ -186,6 +186,88 @@ def test_users_cannot_see_or_edit_each_others_records(client):
     assert [item["description"] for item in still_adas] == ["Ada's paycheck"]
 
 
+def test_reassigning_a_transaction_updates_both_balances(client):
+    token = register(client, "ada@example.com")
+    headers = auth_header(token)
+    cash_id, pay, _groceries = starter_ids(client, token)
+    savings = client.post(
+        "/api/accounts",
+        headers=headers,
+        json={"name": "Savings", "account_type": "savings"},
+    )
+    assert savings.status_code == 201
+    savings_id = savings.json()["id"]
+
+    created = client.post(
+        "/api/transactions",
+        headers=headers,
+        json={
+            "account_id": cash_id,
+            "category_id": pay["id"],
+            "amount_cents": 1500,
+            "direction": "income",
+            "description": "Transfer in",
+            "occurred_on": "2026-10-04",
+        },
+    )
+    assert created.status_code == 201
+    transaction_id = created.json()["id"]
+
+    moved = client.put(
+        f"/api/transactions/{transaction_id}",
+        headers=headers,
+        json={
+            "account_id": savings_id,
+            "category_id": pay["id"],
+            "amount_cents": 1500,
+            "direction": "income",
+            "description": "Transfer in",
+            "occurred_on": "2026-10-04",
+        },
+    )
+    assert moved.status_code == 200
+    balances = {
+        account["id"]: account["balance_cents"]
+        for account in client.get("/api/accounts", headers=headers).json()
+    }
+    assert balances[cash_id] == 0
+    assert balances[savings_id] == 1500
+
+    savings_only = client.get("/api/transactions", headers=headers, params={"account_id": savings_id})
+    assert [item["description"] for item in savings_only.json()] == ["Transfer in"]
+
+
+def test_transaction_rejects_bad_input_and_missing_rows(client):
+    assert client.get("/api/transactions").status_code == 401
+    token = register(client, "ada@example.com")
+    headers = auth_header(token)
+    account_id, pay, _groceries = starter_ids(client, token)
+    rejected = client.post(
+        "/api/transactions",
+        headers=headers,
+        json={
+            "account_id": account_id,
+            "category_id": pay["id"],
+            "amount_cents": 0,
+            "direction": "income",
+            "description": "Zero",
+            "occurred_on": "2026-10-04",
+        },
+    )
+    assert rejected.status_code == 422
+    missing = {
+        "account_id": account_id,
+        "category_id": pay["id"],
+        "amount_cents": 100,
+        "direction": "income",
+        "description": "Missing",
+        "occurred_on": "2026-10-04",
+    }
+    assert client.put("/api/transactions/999999", headers=headers, json=missing).status_code == 404
+    assert client.delete("/api/transactions/999999", headers=headers).status_code == 404
+    assert client.get("/api/accounts", headers=headers).json()[0]["balance_cents"] == 0
+
+
 def test_new_category_is_private(client):
     ada = register(client, "ada@example.com")
     bea = register(client, "bea@example.com")
@@ -199,3 +281,9 @@ def test_new_category_is_private(client):
     bea_names = [category["name"] for category in client.get("/api/categories", headers=auth_header(bea)).json()]
     assert "Freelance" in ada_names
     assert "Freelance" not in bea_names
+    duplicate = client.post(
+        "/api/categories",
+        headers=auth_header(ada),
+        json={"name": "freelance", "kind": "income"},
+    )
+    assert duplicate.status_code == 409

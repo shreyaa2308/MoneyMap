@@ -4,7 +4,7 @@ import { api } from '../api'
 import { useAuth } from '../auth.js'
 import { centsToInput, dollarsToCents, formatCents } from '../money'
 
-const fieldClass = 'mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2'
+const fieldClass = 'field'
 
 function blank() {
   return { name: '', quantity: '', purchase: '', current: '' }
@@ -17,6 +17,7 @@ export default function InvestmentsPage() {
   const [form, setForm] = useState(blank)
   const [editingId, setEditingId] = useState(null)
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [reloadKey, setReloadKey] = useState(0)
 
@@ -66,6 +67,9 @@ export default function InvestmentsPage() {
 
   async function onSave(event) {
     event.preventDefault()
+    if (saving) {
+      return
+    }
     const purchase = dollarsToCents(form.purchase)
     const current = dollarsToCents(form.current)
     if (!/^\d+(\.\d{1,4})?$/.test(form.quantity.trim()) || form.quantity.trim() === '0') {
@@ -76,6 +80,7 @@ export default function InvestmentsPage() {
       setError('Enter prices in dollars, such as 20.00')
       return
     }
+    setSaving(true)
     const body = JSON.stringify({
       name: form.name,
       quantity: form.quantity.trim(),
@@ -94,6 +99,8 @@ export default function InvestmentsPage() {
       setReloadKey((value) => value + 1)
     } catch (err) {
       setError(err.message)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -110,37 +117,40 @@ export default function InvestmentsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-      <h1 className="text-3xl font-semibold">Investments</h1>
-      <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-950">
+    <main className="page">
+      <h1 className="page-title">Investments</h1>
+      <p className="note mt-3">
         Manual and simulated. You type the quantity and prices. MoneyMap does not look up live quotes or connect to a brokerage.
         Net worth adds each holding&apos;s current value once. These holdings are not also stored as cash accounts.
       </p>
-      {error ? <p className="mt-4 text-sm text-rose-700">{error}</p> : null}
+      {error ? <p className="alert-error mt-4">{error}</p> : null}
       {loading ? (
-        <p className="mt-6 text-slate-500">Loading holdings…</p>
+        <p className="mt-6 text-faint">Loading holdings…</p>
       ) : holdings.length === 0 ? (
-        <p className="mt-6 text-sm text-slate-500">No holdings yet.</p>
+        <p className="mt-6 text-sm text-faint">No holdings yet.</p>
       ) : (
         <ul className="mt-6 space-y-3">
           {holdings.map((holding) => (
-            <li key={holding.id} className="rounded-lg border border-slate-200 bg-white p-4">
+            <li key={holding.id} className="card">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="font-medium">{holding.name}</p>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-faint">
                     {holding.quantity} × {formatCents(holding.current_price_cents)} current
                   </p>
                 </div>
                 <p className="font-medium">{formatCents(holding.current_value_cents)}</p>
               </div>
-              <p className="mt-2 text-sm text-slate-600">
-                Cost {formatCents(holding.cost_basis_cents)} · Change {formatCents(holding.gain_cents)}
+              <p className="mt-2 text-sm text-muted">
+                Cost {formatCents(holding.cost_basis_cents)} · Change{' '}
+                <span className={holding.gain_cents < 0 ? 'money font-semibold text-negative' : 'money font-semibold text-pine'}>
+                  {formatCents(holding.gain_cents)}
+                </span>
               </p>
               <div className="mt-2 flex gap-4 text-sm">
                 <button
                   type="button"
-                  className="text-teal-800"
+                  className="text-pine"
                   onClick={() => {
                     setEditingId(holding.id)
                     setForm({
@@ -162,7 +172,7 @@ export default function InvestmentsPage() {
         </ul>
       )}
 
-      <form onSubmit={onSave} className="mt-6 grid gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2">
+      <form onSubmit={onSave} className="mt-6 grid gap-3 card sm:grid-cols-2">
         <label className="text-sm font-medium sm:col-span-2">
           Name
           <input className={fieldClass} value={form.name} onChange={(event) => update('name', event.target.value)} required />
@@ -179,8 +189,8 @@ export default function InvestmentsPage() {
           Current price per unit
           <input className={fieldClass} value={form.current} onChange={(event) => update('current', event.target.value)} placeholder="22.00" required />
         </label>
-        <button type="submit" className="self-end rounded-md bg-teal-800 px-4 py-2 text-sm font-medium text-white">
-          {editingId ? 'Save holding' : 'Add holding'}
+        <button type="submit" disabled={saving} className="self-end btn btn-primary">
+          {saving ? 'Saving…' : editingId ? 'Save holding' : 'Add holding'}
         </button>
       </form>
     </main>

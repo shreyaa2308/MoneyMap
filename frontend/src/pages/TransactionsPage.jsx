@@ -5,7 +5,7 @@ import { useAuth } from '../auth.js'
 import CsvImport from '../components/CsvImport.jsx'
 import { centsToInput, dollarsToCents, formatCents, todayInput } from '../money'
 
-const fieldClass = 'mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2'
+const fieldClass = 'field'
 
 function blankForm() {
   return {
@@ -31,9 +31,13 @@ export default function TransactionsPage() {
   const [categoryFilter, setCategoryFilter] = useState('')
   const [form, setForm] = useState(blankForm)
   const [editingId, setEditingId] = useState(null)
+  const [accountFilter, setAccountFilter] = useState('')
   const [categoryName, setCategoryName] = useState('')
   const [categoryKind, setCategoryKind] = useState('expense')
   const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
@@ -59,6 +63,10 @@ export default function TransactionsPage() {
       if (categoryFilter) {
         params.set('category_id', categoryFilter)
       }
+      if (accountFilter) {
+        params.set('account_id', accountFilter)
+      }
+      setLoading(true)
       try {
         const [me, accountRows, categoryRows, transactionRows] = await Promise.all([
           api('/api/auth/me'),
@@ -83,7 +91,11 @@ export default function TransactionsPage() {
           navigate('/login')
           return
         }
-        setError(err.message)
+        setError(err.message || 'Transactions could not be loaded.')
+      } finally {
+        if (!ignore) {
+          setLoading(false)
+        }
       }
     }
 
@@ -91,9 +103,13 @@ export default function TransactionsPage() {
     return () => {
       ignore = true
     }
-  }, [token, appliedSearch, kind, categoryFilter, reloadKey, logout, navigate])
+  }, [token, appliedSearch, kind, categoryFilter, accountFilter, reloadKey, logout, navigate])
 
   const matchingCategories = categories.filter((category) => category.kind === form.direction)
+  const suggestedAccountId = accounts[0] ? String(accounts[0].id) : ''
+  const suggestedCategoryId = matchingCategories[0] ? String(matchingCategories[0].id) : ''
+  const formAccountId = form.account_id || suggestedAccountId
+  const formCategoryId = form.category_id || suggestedCategoryId
 
   function updateForm(field, value) {
     setForm((current) => {
@@ -131,19 +147,37 @@ export default function TransactionsPage() {
 
   async function onSave(event) {
     event.preventDefault()
+    if (saving) {
+      return
+    }
     const amountCents = dollarsToCents(form.amount)
     if (amountCents == null) {
       setError('Enter a positive amount in dollars, such as 12.50')
       return
     }
+    if (!formAccountId) {
+      setError('Choose an account')
+      return
+    }
+    if (!formCategoryId) {
+      setError('Choose a category that matches income or expense')
+      return
+    }
+    if (!form.occurred_on) {
+      setError('Choose a date')
+      return
+    }
     const body = {
-      account_id: Number(form.account_id),
-      category_id: Number(form.category_id),
+      account_id: Number(formAccountId),
+      category_id: Number(formCategoryId),
       amount_cents: amountCents,
       direction: form.direction,
       description: form.description,
       occurred_on: form.occurred_on,
     }
+    const wasEditing = Boolean(editingId)
+    setSaving(true)
+    setMessage('')
     try {
       if (editingId) {
         await api(`/api/transactions/${editingId}`, {
@@ -157,9 +191,13 @@ export default function TransactionsPage() {
         })
       }
       cancelEdit()
+      setError('')
+      setMessage(wasEditing ? 'Transaction updated.' : 'Transaction added.')
       setReloadKey((value) => value + 1)
     } catch (err) {
       setError(err.message)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -168,19 +206,31 @@ export default function TransactionsPage() {
     if (!confirmed) {
       return
     }
+    if (saving) {
+      return
+    }
+    setSaving(true)
     try {
       await api(`/api/transactions/${transaction.id}`, { method: 'DELETE' })
       if (editingId === transaction.id) {
         cancelEdit()
       }
+      setError('')
+      setMessage('Transaction deleted.')
       setReloadKey((value) => value + 1)
     } catch (err) {
       setError(err.message)
+    } finally {
+      setSaving(false)
     }
   }
 
   async function onCreateCategory(event) {
     event.preventDefault()
+    if (saving) {
+      return
+    }
+    setSaving(true)
     try {
       const created = await api('/api/categories', {
         method: 'POST',
@@ -192,25 +242,33 @@ export default function TransactionsPage() {
         direction: created.kind,
         category_id: String(created.id),
       }))
+      setError('')
+      setMessage('Category added.')
       setReloadKey((value) => value + 1)
     } catch (err) {
       setError(err.message)
+    } finally {
+      setSaving(false)
     }
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-      <h1 className="text-3xl font-semibold">Transactions</h1>
-      <p className="mt-2 text-slate-600">
+    <main className="page">
+      <h1 className="page-title">Transactions</h1>
+      <p className="lede">
         {email ? `Signed in as ${email}. ` : null}
         Amounts are saved in cents. Income is positive and expenses are negative.
       </p>
       {email === 'demo@moneymap.example' ? (
-        <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-950">
+        <p className="note mt-3">
           These sample records are fictional. They are not a real bank account.
         </p>
       ) : null}
-      <CsvImport onImported={() => setReloadKey((value) => value + 1)} />
+      <CsvImport
+        accounts={accounts}
+        categories={categories}
+        onImported={() => setReloadKey((value) => value + 1)}
+      />
 
       <form
         className="mt-6 flex flex-col gap-3 sm:flex-row"
@@ -220,17 +278,17 @@ export default function TransactionsPage() {
         }}
       >
         <input
-          className="w-full rounded-md border border-slate-300 bg-white px-3 py-2"
+          className="field"
           placeholder="Search descriptions"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
-        <button type="submit" className="rounded-md border border-slate-300 bg-white px-4 py-2">
+        <button type="submit" className="btn btn-secondary">
           Search
         </button>
       </form>
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
         <label className="text-sm font-medium">
           Type
           <select className={fieldClass} value={kind} onChange={(event) => setKind(event.target.value)}>
@@ -254,32 +312,53 @@ export default function TransactionsPage() {
             ))}
           </select>
         </label>
+        <label className="text-sm font-medium">
+          Account
+          <select
+            className={fieldClass}
+            value={accountFilter}
+            onChange={(event) => setAccountFilter(event.target.value)}
+          >
+            <option value="">All accounts</option>
+            {accounts.map((account) => (
+              <option key={account.id} value={account.id}>
+                {account.name}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
-      {error ? <p className="mt-4 text-sm text-rose-700">{error}</p> : null}
+      {error ? <p className="alert-error mt-4">{error}</p> : null}
+      {message ? <p className="alert-ok mt-4">{message}</p> : null}
 
       <ul className="mt-6 space-y-3">
-        {transactions.length === 0 ? (
-          <li className="text-slate-500">No transactions match.</li>
+        {loading && transactions.length === 0 ? (
+          <li className="text-faint">Loading transactions…</li>
+        ) : null}
+        {!loading && transactions.length === 0 ? (
+          <li className="text-faint">
+            {error ? 'Transactions could not be loaded.' : 'No transactions match.'}
+          </li>
         ) : null}
         {transactions.map((transaction) => (
-          <li key={transaction.id} className="rounded-lg border border-slate-200 bg-white p-4">
+          <li key={transaction.id} className="card">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="font-medium">{transaction.description}</p>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-faint">
                   {transaction.occurred_on} · {transaction.category_name} · {transaction.account_name}
                 </p>
               </div>
-              <p className={transaction.amount_cents < 0 ? 'font-medium text-rose-700' : 'font-medium text-teal-800'}>
+              <p className={transaction.amount_cents < 0 ? 'money font-medium text-negative' : 'money font-medium text-pine'}>
                 {formatCents(transaction.amount_cents)}
               </p>
             </div>
             <div className="mt-3 flex gap-4 text-sm">
-              <button type="button" onClick={() => startEdit(transaction)} className="text-teal-800">
+              <button type="button" onClick={() => startEdit(transaction)} disabled={saving} className="text-pine disabled:opacity-50">
                 Edit
               </button>
-              <button type="button" onClick={() => onDelete(transaction)} className="text-rose-700">
+              <button type="button" onClick={() => onDelete(transaction)} disabled={saving} className="text-rose-700 disabled:opacity-50">
                 Delete
               </button>
             </div>
@@ -287,7 +366,7 @@ export default function TransactionsPage() {
         ))}
       </ul>
 
-      <form onSubmit={onSave} className="mt-8 rounded-lg border border-slate-200 bg-white p-4">
+      <form onSubmit={onSave} className="mt-8 card">
         <h2 className="text-lg font-semibold">{editingId ? 'Edit transaction' : 'Add transaction'}</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-medium sm:col-span-2">
@@ -335,7 +414,7 @@ export default function TransactionsPage() {
             Account
             <select
               className={fieldClass}
-              value={form.account_id}
+              value={formAccountId}
               onChange={(event) => updateForm('account_id', event.target.value)}
               required
             >
@@ -351,7 +430,7 @@ export default function TransactionsPage() {
             Category
             <select
               className={fieldClass}
-              value={form.category_id}
+              value={formCategoryId}
               onChange={(event) => updateForm('category_id', event.target.value)}
               required
             >
@@ -365,18 +444,18 @@ export default function TransactionsPage() {
           </label>
         </div>
         <div className="mt-4 flex flex-wrap gap-3">
-          <button type="submit" className="rounded-md bg-teal-800 px-4 py-2 font-medium text-white">
-            {editingId ? 'Save changes' : 'Add transaction'}
+          <button type="submit" disabled={saving} className="btn btn-primary">
+            {saving ? 'Saving…' : editingId ? 'Save changes' : 'Add transaction'}
           </button>
           {editingId ? (
-            <button type="button" onClick={cancelEdit} className="rounded-md border border-slate-300 px-4 py-2">
+            <button type="button" onClick={cancelEdit} className="btn btn-secondary">
               Cancel
             </button>
           ) : null}
         </div>
       </form>
 
-      <form onSubmit={onCreateCategory} className="mt-6 rounded-lg border border-slate-200 bg-white p-4">
+      <form onSubmit={onCreateCategory} className="mt-6 card">
         <h2 className="text-lg font-semibold">Add a category</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-medium">
@@ -400,8 +479,8 @@ export default function TransactionsPage() {
             </select>
           </label>
         </div>
-        <button type="submit" className="mt-4 rounded-md border border-slate-300 px-4 py-2">
-          Add category
+        <button type="submit" disabled={saving} className="mt-4 btn btn-secondary disabled:opacity-50">
+          {saving ? 'Saving…' : 'Add category'}
         </button>
       </form>
     </main>

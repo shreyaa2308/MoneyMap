@@ -4,7 +4,7 @@ import { api } from '../api'
 import { useAuth } from '../auth.js'
 import { formatCents } from '../money'
 
-const fieldClass = 'mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2'
+const fieldClass = 'field'
 
 export default function AccountsPage() {
   const { token, logout } = useAuth()
@@ -16,6 +16,7 @@ export default function AccountsPage() {
   const [pendingDelete, setPendingDelete] = useState(null)
   const [reassignTo, setReassignTo] = useState('')
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [reloadKey, setReloadKey] = useState(0)
 
@@ -69,7 +70,11 @@ export default function AccountsPage() {
 
   async function onSave(event) {
     event.preventDefault()
+    if (saving) {
+      return
+    }
     const body = JSON.stringify({ name, account_type: accountType })
+    setSaving(true)
     try {
       if (editingId) {
         await api(`/api/accounts/${editingId}`, { method: 'PUT', body })
@@ -81,6 +86,8 @@ export default function AccountsPage() {
       setReloadKey((value) => value + 1)
     } catch (err) {
       setError(err.message)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -121,46 +128,51 @@ export default function AccountsPage() {
   const accounts = worth?.accounts || []
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-      <h1 className="text-3xl font-semibold">Accounts</h1>
-      <p className="mt-2 text-slate-600">
+    <main className="page">
+      <h1 className="page-title">Accounts</h1>
+      <p className="lede">
         Balances come from transactions. Net worth adds those balances to manual investment values once.
+        Checking, savings, and cash are the only account types. There are no loan or credit-card accounts, so a
+        negative balance lowers net worth instead of being tracked as a separate liability.
       </p>
-      {error ? <p className="mt-4 text-sm text-rose-700">{error}</p> : null}
-      {loading || !worth ? (
-        <p className="mt-6 text-slate-500">Loading accounts…</p>
-      ) : (
+      {error ? <p className="alert-error mt-4">{error}</p> : null}
+      {loading ? <p className="mt-6 text-faint">Loading accounts…</p> : null}
+      {!loading && worth ? (
         <>
-          <div className="mt-6 grid gap-3 sm:grid-cols-3">
-            <section className="rounded-lg border border-slate-200 bg-white p-4">
-              <p className="text-sm text-slate-500">Cash</p>
-              <p className="mt-2 text-2xl font-semibold">{formatCents(worth.cash_cents)}</p>
+          <div className="mt-6 grid gap-4 sm:grid-cols-3">
+            <section className="card">
+              <p className="text-sm text-faint">Cash</p>
+              <p className={worth.cash_cents < 0 ? 'money mt-3 text-3xl font-semibold text-negative' : 'money mt-3 text-3xl font-semibold text-pine'}>
+                {formatCents(worth.cash_cents)}
+              </p>
             </section>
-            <section className="rounded-lg border border-slate-200 bg-white p-4">
-              <p className="text-sm text-slate-500">Investments</p>
-              <p className="mt-2 text-2xl font-semibold">{formatCents(worth.investments_cents)}</p>
+            <section className="card">
+              <p className="text-sm text-faint">Investments</p>
+              <p className="money mt-3 text-3xl font-semibold">{formatCents(worth.investments_cents)}</p>
             </section>
-            <section className="rounded-lg border border-slate-200 bg-white p-4">
-              <p className="text-sm text-slate-500">Net worth</p>
-              <p className="mt-2 text-2xl font-semibold">{formatCents(worth.net_worth_cents)}</p>
+            <section className="card bg-navy text-white">
+              <p className="text-sm text-white/70">Net worth</p>
+              <p className="money mt-3 text-3xl font-semibold">{formatCents(worth.net_worth_cents)}</p>
             </section>
           </div>
 
           {accounts.length === 0 ? (
-            <p className="mt-6 text-sm text-slate-500">No accounts yet.</p>
+            <p className="mt-6 text-sm text-faint">No accounts yet.</p>
           ) : (
-            <ul className="mt-6 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+            <ul className="mt-6 list">
               {accounts.map((account) => (
                 <li key={account.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                   <div>
                     <p className="font-medium">{account.name}</p>
-                    <p className="text-sm capitalize text-slate-500">{account.account_type}</p>
+                    <p className="text-sm capitalize text-faint">{account.account_type}</p>
                   </div>
                   <div className="flex items-center gap-4">
-                    <p className="font-medium">{formatCents(account.balance_cents)}</p>
+                    <p className={account.balance_cents < 0 ? 'money font-semibold text-negative' : account.balance_cents > 0 ? 'money font-semibold text-pine' : 'money font-semibold'}>
+                      {formatCents(account.balance_cents)}
+                    </p>
                     <button
                       type="button"
-                      className="text-sm text-teal-800"
+                      className="text-sm text-pine"
                       onClick={() => {
                         setEditingId(account.id)
                         setName(account.name)
@@ -169,7 +181,7 @@ export default function AccountsPage() {
                     >
                       Edit
                     </button>
-                    <button type="button" className="text-sm text-rose-700" onClick={() => onDelete(account)}>
+                    <button type="button" className="alert-error" onClick={() => onDelete(account)}>
                       Delete
                     </button>
                   </div>
@@ -206,7 +218,7 @@ export default function AccountsPage() {
                   type="button"
                   disabled={!reassignTo}
                   onClick={() => confirmDelete('move')}
-                  className="rounded-md bg-teal-800 px-3 py-2 text-white disabled:opacity-50"
+                  className="btn btn-primary disabled:opacity-50"
                 >
                   Move transactions
                 </button>
@@ -221,7 +233,7 @@ export default function AccountsPage() {
             </section>
           ) : null}
 
-          <form onSubmit={onSave} className="mt-6 grid gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-[1fr_10rem_auto]">
+          <form onSubmit={onSave} className="mt-6 grid gap-3 card sm:grid-cols-[1fr_10rem_auto]">
             <label className="text-sm font-medium">
               Name
               <input className={fieldClass} value={name} onChange={(event) => setName(event.target.value)} required />
@@ -234,15 +246,20 @@ export default function AccountsPage() {
                 <option value="cash">Cash</option>
               </select>
             </label>
-            <button type="submit" className="self-end rounded-md bg-teal-800 px-4 py-2 text-sm font-medium text-white">
-              {editingId ? 'Save account' : 'Add account'}
+            <button type="submit" disabled={saving} className="self-end btn btn-primary">
+              {saving ? 'Saving…' : editingId ? 'Save account' : 'Add account'}
             </button>
+            {editingId ? (
+              <button type="button" onClick={resetForm} className="self-end btn btn-secondary text-sm">
+                Cancel
+              </button>
+            ) : null}
           </form>
-          <p className="mt-4 text-sm text-slate-600">
-            Investment values are entered on the <Link to="/investments" className="text-teal-800">Investments</Link> page.
+          <p className="mt-4 text-sm text-muted">
+            Investment values are entered on the <Link to="/investments" className="text-pine">Investments</Link> page.
           </p>
         </>
-      )}
+      ) : null}
     </main>
   )
 }

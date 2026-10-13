@@ -20,6 +20,7 @@ export default function BudgetList({ budgets, month, categories, onChange }) {
   const [editingId, setEditingId] = useState(null)
   const [editAmount, setEditAmount] = useState('')
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
 
   const budgetedIds = new Set(budgets.map((budget) => budget.category_id))
   const available = categories.filter(
@@ -33,6 +34,10 @@ export default function BudgetList({ budgets, month, categories, onChange }) {
       setError('Enter a positive spending limit, such as 80.00')
       return
     }
+    if (busy) {
+      return
+    }
+    setBusy(true)
     try {
       await api('/api/budgets', {
         method: 'POST',
@@ -48,6 +53,8 @@ export default function BudgetList({ budgets, month, categories, onChange }) {
       onChange()
     } catch (err) {
       setError(err.message)
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -57,6 +64,10 @@ export default function BudgetList({ budgets, month, categories, onChange }) {
       setError('Enter a positive spending limit, such as 80.00')
       return
     }
+    if (busy) {
+      return
+    }
+    setBusy(true)
     try {
       await api(`/api/budgets/${budget.id}`, {
         method: 'PUT',
@@ -67,6 +78,8 @@ export default function BudgetList({ budgets, month, categories, onChange }) {
       onChange()
     } catch (err) {
       setError(err.message)
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -75,19 +88,25 @@ export default function BudgetList({ budgets, month, categories, onChange }) {
     if (!confirmed) {
       return
     }
+    if (busy) {
+      return
+    }
+    setBusy(true)
     try {
       await api(`/api/budgets/${budget.id}`, { method: 'DELETE' })
       setError('')
       onChange()
     } catch (err) {
       setError(err.message)
+    } finally {
+      setBusy(false)
     }
   }
 
   return (
     <div>
       {budgets.length === 0 ? (
-        <p className="text-sm text-slate-500">No budgets for this month yet.</p>
+        <p className="text-sm text-faint">No budgets for this month yet.</p>
       ) : (
         <ul className="space-y-4">
           {budgets.map((budget) => {
@@ -96,7 +115,7 @@ export default function BudgetList({ budgets, month, categories, onChange }) {
               <li key={budget.id}>
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="font-medium">{budget.category_name}</p>
-                  <p className="text-sm text-slate-600">
+                  <p className="text-sm text-muted">
                     {formatCents(-budget.spent_cents)} of {formatCents(budget.limit_cents)} · {statusLabel[budget.status]}
                   </p>
                 </div>
@@ -106,7 +125,7 @@ export default function BudgetList({ budgets, month, categories, onChange }) {
                     style={{ width: `${width}%` }}
                   />
                 </div>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-faint">
                   {budget.remaining_cents >= 0
                     ? `${formatCents(budget.remaining_cents)} left`
                     : `${formatCents(-budget.remaining_cents)} over`}
@@ -116,7 +135,7 @@ export default function BudgetList({ budgets, month, categories, onChange }) {
                 {editingId === budget.id ? (
                   <div className="mt-2 flex flex-wrap gap-2">
                     <input
-                      className="rounded-md border border-slate-300 px-3 py-2"
+                      className="field"
                       value={editAmount}
                       onChange={(event) => setEditAmount(event.target.value)}
                       inputMode="decimal"
@@ -124,11 +143,11 @@ export default function BudgetList({ budgets, month, categories, onChange }) {
                     <button
                       type="button"
                       onClick={() => onSave(budget)}
-                      className="rounded-md bg-teal-800 px-3 py-2 text-sm text-white"
+                      className="btn btn-primary"
                     >
                       Save
                     </button>
-                    <button type="button" onClick={() => setEditingId(null)} className="text-sm text-slate-600">
+                    <button type="button" onClick={() => setEditingId(null)} className="text-sm text-muted">
                       Cancel
                     </button>
                   </div>
@@ -136,7 +155,7 @@ export default function BudgetList({ budgets, month, categories, onChange }) {
                   <div className="mt-2 flex gap-4 text-sm">
                     <button
                       type="button"
-                      className="text-teal-800"
+                      className="text-pine"
                       onClick={() => {
                         setEditingId(budget.id)
                         setEditAmount(centsToInput(budget.limit_cents))
@@ -159,7 +178,7 @@ export default function BudgetList({ budgets, month, categories, onChange }) {
         <label className="text-sm font-medium">
           Spending category
           <select
-            className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2"
+            className="field"
             value={categoryId}
             onChange={(event) => setCategoryId(event.target.value)}
             required
@@ -175,7 +194,7 @@ export default function BudgetList({ budgets, month, categories, onChange }) {
         <label className="text-sm font-medium">
           Limit
           <input
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+            className="field"
             value={amount}
             onChange={(event) => setAmount(event.target.value)}
             placeholder="80.00"
@@ -183,11 +202,11 @@ export default function BudgetList({ budgets, month, categories, onChange }) {
             required
           />
         </label>
-        <button type="submit" className="self-end rounded-md bg-teal-800 px-4 py-2 text-sm font-medium text-white">
-          Add budget
+        <button type="submit" disabled={busy} className="self-end btn btn-primary">
+          {busy ? 'Saving…' : 'Add budget'}
         </button>
       </form>
-      {error ? <p className="mt-3 text-sm text-rose-700">{error}</p> : null}
+      {error ? <p className="alert-error mt-3">{error}</p> : null}
     </div>
   )
 }

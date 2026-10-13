@@ -144,5 +144,9 @@ def delete_account(
 
 @router.get("/net-worth", response_model=NetWorthResponse)
 def net_worth(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Cash is the sum of account balances. Investments are manual holding values, added once."""
+    """Cash is the sum of checking, savings, and cash balances.
+
+    There is no liability account type. A negative balance reduces net worth.
+    Simulated holdings are added once and are not copied into an account.
+    """
     return net_worth_for(db, user)

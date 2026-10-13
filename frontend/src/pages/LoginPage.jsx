@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth.js'
 
-const fieldClass = 'mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2'
+const fieldClass = 'field'
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -11,10 +11,15 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [pending, setPending] = useState(false)
 
   async function onSubmit(event) {
     event.preventDefault()
+    if (pending) {
+      return
+    }
     setError('')
+    setPending(true)
     try {
       const data = await api('/api/auth/login', {
         method: 'POST',
@@ -24,13 +29,15 @@ export default function LoginPage() {
       navigate('/transactions')
     } catch (err) {
       setError(err.message)
+    } finally {
+      setPending(false)
     }
   }
 
   return (
-    <main className="mx-auto max-w-md px-4 py-12 sm:px-6">
-      <h1 className="text-3xl font-semibold">Log in</h1>
-      <p className="mt-2 text-slate-600">Use your MoneyMap email and password.</p>
+    <main className="page page-narrow">
+      <h1 className="page-title">Log in</h1>
+      <p className="lede">Use your MoneyMap email and password.</p>
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
         <label className="block text-sm font-medium">
           Email
@@ -54,19 +61,20 @@ export default function LoginPage() {
             required
           />
         </label>
-        {error ? <p className="text-sm text-rose-700">{error}</p> : null}
+        {error ? <p className="alert-error">{error}</p> : null}
         <button
           type="submit"
-          className="w-full rounded-md bg-teal-800 px-4 py-2 font-medium text-white"
+          disabled={pending}
+          className="btn btn-primary w-full"
         >
-          Log in
+          {pending ? 'Signing in…' : 'Log in'}
         </button>
       </form>
-      <p className="mt-6 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-950">
+      <p className="note mt-6">
         Fictional sample login: demo@moneymap.example / demopassword
       </p>
-      <p className="mt-4 text-sm text-slate-600">
-        New here? <Link to="/register" className="text-teal-800">Create an account</Link>
+      <p className="mt-4 text-sm text-muted">
+        New here? <Link to="/register" className="text-pine">Create an account</Link>
       </p>
     </main>
   )

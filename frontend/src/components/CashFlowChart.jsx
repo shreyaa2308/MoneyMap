@@ -8,7 +8,7 @@ function formatAxis(cents) {
 export default function CashFlowChart({ months }) {
   const hasActivity = months.some((month) => month.income_cents > 0 || month.expenses_cents > 0)
   if (!hasActivity) {
-    return <p className="text-sm text-slate-500">No income or expenses in this six-month window.</p>
+    return <p className="text-sm text-faint">No income or expenses in this six-month window.</p>
   }
 
   const rows = months.map((month) => ({
@@ -24,8 +24,8 @@ export default function CashFlowChart({ months }) {
           <XAxis dataKey="month" tick={{ fontSize: 12 }} />
           <YAxis tickFormatter={formatAxis} width={56} tick={{ fontSize: 12 }} />
           <Tooltip formatter={(value) => formatCents(Number(value))} />
-          <Bar dataKey="Income" fill="#115e59" radius={[4, 4, 0, 0]} />
-          <Bar dataKey="Expenses" fill="#be123c" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="Income" fill="#1c7c4a" radius={[8, 8, 0, 0]} />
+          <Bar dataKey="Expenses" fill="#9d2c2c" radius={[8, 8, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

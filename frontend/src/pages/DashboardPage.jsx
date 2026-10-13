@@ -76,17 +76,17 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+    <main className="page">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-semibold">Dashboard</h1>
-          <p className="mt-1 text-slate-600">{formatMonthLabel(month)}</p>
+          <h1 className="page-title">Dashboard</h1>
+          <p className="mt-1 text-muted">{formatMonthLabel(month)}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => changeMonth(shiftMonth(month, -1))}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+            className="btn btn-secondary"
           >
             Previous
           </button>
@@ -94,22 +94,24 @@ export default function DashboardPage() {
             type="month"
             value={month}
             onChange={(event) => changeMonth(event.target.value)}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2"
+            className="field field-inline"
           />
           <button
             type="button"
             onClick={() => changeMonth(shiftMonth(month, 1))}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+            className="btn btn-secondary"
           >
             Next
           </button>
         </div>
       </div>
 
-      {error ? <p className="mt-4 text-sm text-rose-700">{error}</p> : null}
-      {loading || !dashboard ? (
-        <p className="mt-6 text-slate-500">Loading dashboard…</p>
-      ) : (
+      {loading ? <p className="mt-6 text-faint">Loading dashboard…</p> : null}
+      {!loading && error ? <p className="alert-error mt-4">{error}</p> : null}
+      {!loading && !dashboard && !error ? (
+        <p className="mt-6 text-faint">No dashboard data for this month.</p>
+      ) : null}
+      {!loading && dashboard ? (
         <div className="mt-6 space-y-6">
           <SummaryCards
             incomeCents={dashboard.total_income_cents}
@@ -117,24 +119,24 @@ export default function DashboardPage() {
             netCents={dashboard.net_cents}
           />
 
-          <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <section className="card">
             <h2 className="text-lg font-semibold">Spending by category</h2>
             <div className="mt-4">
               <SpendingChart spending={dashboard.spending_by_category} />
             </div>
           </section>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <section className="card">
             <h2 className="text-lg font-semibold">Income and expenses</h2>
-            <p className="mt-1 text-sm text-slate-500">The selected month and the five months before it.</p>
+            <p className="mt-1 text-sm text-faint">The selected month and the five months before it.</p>
             <div className="mt-4">
               <CashFlowChart months={dashboard.monthly_comparison} />
             </div>
           </section>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <section className="card">
             <h2 className="text-lg font-semibold">Budgets</h2>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-faint">
               A budget is a spending limit. It is not counted as money spent.
             </p>
             <div className="mt-4">
@@ -147,14 +149,14 @@ export default function DashboardPage() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <section className="card">
             <h2 className="text-lg font-semibold">Recent transactions</h2>
             <div className="mt-2">
               <RecentTransactions transactions={dashboard.recent_transactions} />
             </div>
           </section>
         </div>
-      )}
+      ) : null}
     </main>
   )
 }

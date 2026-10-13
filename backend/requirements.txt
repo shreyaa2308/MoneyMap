@@ -6,3 +6,5 @@ bcrypt==5.0.0
 PyJWT==2.15.1
 httpx==0.28.1
 python-multipart==0.0.20
+openai==3.29.0
+python-dotenv==1.2.4

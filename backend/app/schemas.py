@@ -289,3 +289,43 @@ class TransactionResponse(BaseModel):
     amount_cents: int
     description: str
     occurred_on: date
+
+
+class ChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=1000)
+    history: list[ChatTurn] = Field(default_factory=list, max_length=6)
+
+    @field_validator("message")
+    @classmethod
+    def clean_message(cls, value):
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("Enter a question")
+        return cleaned
+
+    @field_validator("history")
+    @classmethod
+    def clean_history(cls, value):
+        kept = []
+        for item in value:
+            content = item.content.strip()
+            if not content:
+                continue
+            kept.append(item.model_copy(update={"content": content[:4000]}))
+        return kept[-6:]
+
+
+class ChatResponse(BaseModel):
+    reply: str
+    model: str
+    disclaimer: str
+
+
+class AIStatusResponse(BaseModel):
+    available: bool
+    message: str

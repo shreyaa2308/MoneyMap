@@ -1,16 +1,16 @@
 """Password hashing and login tokens.
 
-MONEYMAP_JWT_SECRET can be set in the environment. The fallback value is for
-this local project only. It is not a production secret.
+MONEYMAP_JWT_SECRET can be set in the environment. Outside development, the
+local default is rejected.
 """
 
-import os
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
 import jwt
 
-JWT_SECRET = os.environ.get("MONEYMAP_JWT_SECRET", "local-dev-secret-not-for-production")
+from app.config import jwt_secret
+
 JWT_ALGORITHM = "HS256"
 TOKEN_LIFETIME = timedelta(days=7)
 
@@ -27,8 +27,8 @@ def verify_password(password, password_hash):
 def create_access_token(user_id):
     expires_at = datetime.now(timezone.utc) + TOKEN_LIFETIME
     payload = {"sub": str(user_id), "exp": expires_at}
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    return jwt.encode(payload, jwt_secret(), algorithm=JWT_ALGORITHM)
 
 
 def decode_access_token(token):
-    return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    return jwt.decode(token, jwt_secret(), algorithms=[JWT_ALGORITHM])

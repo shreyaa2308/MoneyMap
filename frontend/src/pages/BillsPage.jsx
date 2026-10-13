@@ -4,7 +4,7 @@ import { api } from '../api'
 import { useAuth } from '../auth.js'
 import { centsToInput, dollarsToCents, formatCents, todayInput } from '../money'
 
-const fieldClass = 'mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2'
+const fieldClass = 'field'
 
 function blank() {
   return { name: '', amount: '', frequency: 'monthly', category_id: '', next_due_on: todayInput() }
@@ -23,6 +23,7 @@ export default function BillsPage() {
   const [payingId, setPayingId] = useState(null)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [reloadKey, setReloadKey] = useState(0)
 
@@ -82,11 +83,16 @@ export default function BillsPage() {
 
   async function onSave(event) {
     event.preventDefault()
+    if (saving) {
+      return
+    }
     const amount = dollarsToCents(form.amount)
     if (amount == null) {
       setError('Enter a positive amount, such as 15.99')
       return
     }
+    const wasEditing = Boolean(editingId)
+    setSaving(true)
     const body = JSON.stringify({
       name: form.name,
       amount_cents: amount,
@@ -103,10 +109,12 @@ export default function BillsPage() {
       setForm(blank())
       setEditingId(null)
       setError('')
-      setMessage(editingId ? 'Bill updated.' : 'Bill added.')
+      setMessage(wasEditing ? 'Bill updated.' : 'Bill added.')
       setReloadKey((value) => value + 1)
     } catch (err) {
       setError(err.message)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -153,19 +161,19 @@ export default function BillsPage() {
 
   function renderBill(bill) {
     return (
-      <li key={bill.id} className="rounded-lg border border-slate-200 bg-white p-4">
+      <li key={bill.id} className="card">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="font-medium">{bill.name}</p>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-faint">
               {formatCents(bill.amount_cents)} · {bill.frequency} · {bill.category_name}
             </p>
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-muted">
               Next due {bill.next_due_on}
               {bill.last_paid_on ? ` · Last paid ${bill.last_paid_on}` : ''}
             </p>
           </div>
-          <span className={bill.status === 'overdue' ? 'text-sm font-medium text-rose-700' : 'text-sm font-medium text-teal-800'}>
+          <span className={bill.status === 'overdue' ? 'text-sm money font-medium text-negative' : 'text-sm money font-medium text-pine'}>
             {bill.status === 'overdue' ? 'Overdue' : 'Upcoming'}
           </span>
         </div>
@@ -182,10 +190,10 @@ export default function BillsPage() {
                 ))}
               </select>
             </label>
-            <button type="button" onClick={() => onPay(bill)} className="rounded-md bg-teal-800 px-3 py-2 text-sm text-white">
+            <button type="button" onClick={() => onPay(bill)} className="btn btn-primary">
               Create expense
             </button>
-            <button type="button" onClick={() => setPayingId(null)} className="text-sm text-slate-600">
+            <button type="button" onClick={() => setPayingId(null)} className="text-sm text-muted">
               Cancel
             </button>
           </div>
@@ -193,7 +201,7 @@ export default function BillsPage() {
           <div className="mt-2 flex flex-wrap gap-4 text-sm">
             <button
               type="button"
-              className="text-teal-800"
+              className="text-pine"
               onClick={() => {
                 setPayingId(bill.id)
                 setPayAccount('')
@@ -203,7 +211,7 @@ export default function BillsPage() {
             </button>
             <button
               type="button"
-              className="text-teal-800"
+              className="text-pine"
               onClick={() => {
                 setEditingId(bill.id)
                 setForm({
@@ -227,32 +235,32 @@ export default function BillsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-      <h1 className="text-3xl font-semibold">Bills</h1>
-      <p className="mt-2 text-slate-600">
+    <main className="page">
+      <h1 className="page-title">Bills</h1>
+      <p className="lede">
         Marking a bill paid creates one expense for that due date. It does not charge a bank, and the same due date cannot be paid twice.
       </p>
-      {error ? <p className="mt-4 text-sm text-rose-700">{error}</p> : null}
-      {message ? <p className="mt-4 text-sm text-teal-800">{message}</p> : null}
+      {error ? <p className="alert-error mt-4">{error}</p> : null}
+      {message ? <p className="alert-ok mt-4">{message}</p> : null}
       {loading ? (
-        <p className="mt-6 text-slate-500">Loading bills…</p>
+        <p className="mt-6 text-faint">Loading bills…</p>
       ) : (
         <>
           <h2 className="mt-6 text-lg font-semibold">Overdue</h2>
-          {overdue.length === 0 ? <p className="mt-2 text-sm text-slate-500">Nothing overdue.</p> : <ul className="mt-3 space-y-3">{overdue.map(renderBill)}</ul>}
+          {overdue.length === 0 ? <p className="mt-2 text-sm text-faint">Nothing overdue.</p> : <ul className="mt-3 space-y-3">{overdue.map(renderBill)}</ul>}
           <h2 className="mt-6 text-lg font-semibold">Upcoming</h2>
-          {upcoming.length === 0 ? <p className="mt-2 text-sm text-slate-500">No upcoming bills.</p> : <ul className="mt-3 space-y-3">{upcoming.map(renderBill)}</ul>}
+          {upcoming.length === 0 ? <p className="mt-2 text-sm text-faint">No upcoming bills.</p> : <ul className="mt-3 space-y-3">{upcoming.map(renderBill)}</ul>}
           <h2 className="mt-6 text-lg font-semibold">Paid</h2>
           {payments.length === 0 ? (
-            <p className="mt-2 text-sm text-slate-500">No payments yet.</p>
+            <p className="mt-2 text-sm text-faint">No payments yet.</p>
           ) : (
-            <ul className="mt-3 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+            <ul className="mt-3 list">
               {payments.map((payment) => (
                 <li key={payment.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
                   <span>
                     {payment.bill_name} · due {payment.due_on}
                   </span>
-                  <span className="font-medium text-teal-800">Paid {formatCents(payment.amount_cents)}</span>
+                  <span className="money font-medium text-pine">Paid {formatCents(payment.amount_cents)}</span>
                 </li>
               ))}
             </ul>
@@ -260,7 +268,7 @@ export default function BillsPage() {
         </>
       )}
 
-      <form onSubmit={onSave} className="mt-6 grid gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2">
+      <form onSubmit={onSave} className="mt-6 grid gap-3 card sm:grid-cols-2">
         <label className="text-sm font-medium">
           Name
           <input className={fieldClass} value={form.name} onChange={(event) => update('name', event.target.value)} required />
@@ -292,8 +300,8 @@ export default function BillsPage() {
           Next due date
           <input type="date" className={fieldClass} value={form.next_due_on} onChange={(event) => update('next_due_on', event.target.value)} required />
         </label>
-        <button type="submit" className="self-end rounded-md bg-teal-800 px-4 py-2 text-sm font-medium text-white">
-          {editingId ? 'Save bill' : 'Add bill'}
+        <button type="submit" disabled={saving} className="self-end btn btn-primary">
+          {saving ? 'Saving…' : editingId ? 'Save bill' : 'Add bill'}
         </button>
       </form>
     </main>
