@@ -90,7 +90,7 @@ export default function CsvImport({ accounts = [], categories = [], onImported }
   }
 
   return (
-    <section className="card mt-6">
+    <section id="csv-import" className="card mt-6 scroll-mt-24">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="eyebrow">Bank statement</p>
@@ -176,7 +176,7 @@ export default function CsvImport({ accounts = [], categories = [], onImported }
         <input
           type="file"
           accept=".csv,text/csv"
-          className="text-sm"
+          className="block w-full text-sm text-muted file:mr-3 file:rounded-full file:border-0 file:bg-white/10 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-ink"
           onChange={(event) => {
             setFile(event.target.files?.[0] || null)
             clearResult()
@@ -193,13 +193,13 @@ export default function CsvImport({ accounts = [], categories = [], onImported }
       {error ? <p className="alert-error mt-3">{error}</p> : null}
       {message ? <p className="alert-ok mt-3">{message}</p> : null}
       {preview ? (
-        <div className="mt-4 overflow-x-auto">
+        <div className="mt-4 overflow-x-auto rounded-2xl border border-line">
           <p className="text-sm text-muted">
             {preview.valid_count} ready to import, {preview.duplicate_count} duplicates, {preview.invalid_count} invalid.
             {preview.imported_count === 0 ? ' Nothing has been saved yet.' : ` ${preview.imported_count} saved.`}
           </p>
           <table className="mt-3 w-full min-w-[42rem] text-left text-sm">
-            <thead>
+            <thead className="bg-white/5">
               <tr className="border-b border-line text-faint">
                 <th className="py-2 pr-3 font-medium">Row</th>
                 <th className="py-2 pr-3 font-medium">Status</th>
@@ -212,7 +212,7 @@ export default function CsvImport({ accounts = [], categories = [], onImported }
             </thead>
             <tbody>
               {preview.rows.map((row) => (
-                <tr key={row.row_number} className="border-b border-line/80">
+                <tr key={row.row_number} className="border-b border-line/80 transition hover:bg-white/5">
                   <td className="py-2 pr-3">{row.row_number}</td>
                   <td className="py-2 pr-3">
                     <span className={`rounded-full px-2 py-1 text-xs font-semibold capitalize ${statusClass[row.status] || ''}`}>

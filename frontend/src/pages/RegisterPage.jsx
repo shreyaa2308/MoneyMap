@@ -36,11 +36,12 @@ export default function RegisterPage() {
 
   return (
     <main className="page page-narrow">
-      <h1 className="page-title">Create an account</h1>
+      <p className="eyebrow">Account</p>
+      <h1 className="page-title mt-2">Create an account</h1>
       <p className="lede">
         Your password is stored on this computer as a hash, not as plain text.
       </p>
-      <form onSubmit={onSubmit} className="mt-6 space-y-4">
+      <form onSubmit={onSubmit} className="card card-raised mt-6 space-y-4">
         <label className="block text-sm font-medium">
           Email
           <input
@@ -74,7 +75,7 @@ export default function RegisterPage() {
         </button>
       </form>
       <p className="mt-4 text-sm text-muted">
-        Already registered? <Link to="/login" className="text-pine">Log in</Link>
+        Already registered? <Link to="/login" className="link">Log in</Link>
       </p>
     </main>
   )

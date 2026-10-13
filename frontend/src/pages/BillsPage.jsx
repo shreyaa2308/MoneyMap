@@ -161,7 +161,7 @@ export default function BillsPage() {
 
   function renderBill(bill) {
     return (
-      <li key={bill.id} className="card">
+      <li key={bill.id} className="card card-hover">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="font-medium">{bill.name}</p>
@@ -173,7 +173,7 @@ export default function BillsPage() {
               {bill.last_paid_on ? ` · Last paid ${bill.last_paid_on}` : ''}
             </p>
           </div>
-          <span className={bill.status === 'overdue' ? 'text-sm money font-medium text-negative' : 'text-sm money font-medium text-pine'}>
+          <span className={bill.status === 'overdue' ? 'pill pill-bad' : 'pill pill-ok'}>
             {bill.status === 'overdue' ? 'Overdue' : 'Upcoming'}
           </span>
         </div>
@@ -201,7 +201,7 @@ export default function BillsPage() {
           <div className="mt-2 flex flex-wrap gap-4 text-sm">
             <button
               type="button"
-              className="text-pine"
+              className="text-action"
               onClick={() => {
                 setPayingId(bill.id)
                 setPayAccount('')
@@ -211,7 +211,7 @@ export default function BillsPage() {
             </button>
             <button
               type="button"
-              className="text-pine"
+              className="text-action"
               onClick={() => {
                 setEditingId(bill.id)
                 setForm({
@@ -225,7 +225,7 @@ export default function BillsPage() {
             >
               Edit
             </button>
-            <button type="button" className="text-rose-700" onClick={() => onDelete(bill)}>
+            <button type="button" className="text-danger" onClick={() => onDelete(bill)}>
               Delete
             </button>
           </div>
@@ -236,23 +236,41 @@ export default function BillsPage() {
 
   return (
     <main className="page">
-      <h1 className="page-title">Bills</h1>
+      <p className="eyebrow">Schedule</p>
+      <h1 className="page-title mt-2">Bills</h1>
       <p className="lede">
         Marking a bill paid creates one expense for that due date. It does not charge a bank, and the same due date cannot be paid twice.
       </p>
-      {error ? <p className="alert-error mt-4">{error}</p> : null}
+      {error ? <p className="alert-error mt-4" role="alert">{error}</p> : null}
       {message ? <p className="alert-ok mt-4">{message}</p> : null}
       {loading ? (
-        <p className="mt-6 text-faint">Loading bills…</p>
+        <div className="mt-6 space-y-3" role="status">
+          <p className="text-faint">Loading bills…</p>
+          <div className="skeleton h-24" />
+        </div>
       ) : (
         <>
+          <div className="mt-6 grid gap-4 sm:grid-cols-3">
+            <section className="card">
+              <p className="text-sm text-faint">Overdue</p>
+              <p className={overdue.length > 0 ? 'money mt-3 text-3xl font-semibold text-negative' : 'money mt-3 text-3xl font-semibold'}>{overdue.length}</p>
+            </section>
+            <section className="card">
+              <p className="text-sm text-faint">Upcoming</p>
+              <p className="money mt-3 text-3xl font-semibold text-pine">{upcoming.length}</p>
+            </section>
+            <section className="card">
+              <p className="text-sm text-faint">Payments recorded</p>
+              <p className="money mt-3 text-3xl font-semibold">{payments.length}</p>
+            </section>
+          </div>
           <h2 className="mt-6 text-lg font-semibold">Overdue</h2>
-          {overdue.length === 0 ? <p className="mt-2 text-sm text-faint">Nothing overdue.</p> : <ul className="mt-3 space-y-3">{overdue.map(renderBill)}</ul>}
+          {overdue.length === 0 ? <p className="empty-panel mt-3">Nothing overdue.</p> : <ul className="mt-3 space-y-3">{overdue.map(renderBill)}</ul>}
           <h2 className="mt-6 text-lg font-semibold">Upcoming</h2>
-          {upcoming.length === 0 ? <p className="mt-2 text-sm text-faint">No upcoming bills.</p> : <ul className="mt-3 space-y-3">{upcoming.map(renderBill)}</ul>}
+          {upcoming.length === 0 ? <p className="empty-panel mt-3">No upcoming bills.</p> : <ul className="mt-3 space-y-3">{upcoming.map(renderBill)}</ul>}
           <h2 className="mt-6 text-lg font-semibold">Paid</h2>
           {payments.length === 0 ? (
-            <p className="mt-2 text-sm text-faint">No payments yet.</p>
+            <p className="empty-panel mt-3">No payments yet.</p>
           ) : (
             <ul className="mt-3 list">
               {payments.map((payment) => (
@@ -300,7 +318,7 @@ export default function BillsPage() {
           Next due date
           <input type="date" className={fieldClass} value={form.next_due_on} onChange={(event) => update('next_due_on', event.target.value)} required />
         </label>
-        <button type="submit" disabled={saving} className="self-end btn btn-primary">
+        <button type="submit" disabled={saving} className="self-end justify-self-start btn btn-primary">
           {saving ? 'Saving…' : editingId ? 'Save bill' : 'Add bill'}
         </button>
       </form>

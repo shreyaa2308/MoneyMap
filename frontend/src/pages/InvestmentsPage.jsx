@@ -116,22 +116,44 @@ export default function InvestmentsPage() {
     }
   }
 
+  const totalValue = holdings.reduce((sum, holding) => sum + holding.current_value_cents, 0)
+  const totalGain = holdings.reduce((sum, holding) => sum + holding.gain_cents, 0)
+
   return (
     <main className="page">
-      <h1 className="page-title">Investments</h1>
+      <p className="eyebrow">Holdings</p>
+      <h1 className="page-title mt-2">Investments</h1>
       <p className="note mt-3">
         Manual and simulated. You type the quantity and prices. MoneyMap does not look up live quotes or connect to a brokerage.
         Net worth adds each holding&apos;s current value once. These holdings are not also stored as cash accounts.
       </p>
-      {error ? <p className="alert-error mt-4">{error}</p> : null}
+      {error ? <p className="alert-error mt-4" role="alert">{error}</p> : null}
       {loading ? (
-        <p className="mt-6 text-faint">Loading holdings…</p>
+        <div className="mt-6 space-y-3" role="status">
+          <p className="text-faint">Loading holdings…</p>
+          <div className="skeleton h-24" />
+        </div>
       ) : holdings.length === 0 ? (
-        <p className="mt-6 text-sm text-faint">No holdings yet.</p>
+        <p className="empty-panel mt-6">No holdings yet.</p>
       ) : (
+        <>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <section className="card">
+            <p className="text-sm text-faint">Current value</p>
+            <p className="money mt-3 text-3xl font-semibold">
+              {formatCents(totalValue)}
+            </p>
+          </section>
+          <section className="card">
+            <p className="text-sm text-faint">Unrealized change</p>
+            <p className={totalGain < 0 ? 'money mt-3 text-3xl font-semibold text-negative' : 'money mt-3 text-3xl font-semibold text-pine'}>
+              {formatCents(totalGain)}
+            </p>
+          </section>
+        </div>
         <ul className="mt-6 space-y-3">
           {holdings.map((holding) => (
-            <li key={holding.id} className="card">
+            <li key={holding.id} className="card card-hover">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="font-medium">{holding.name}</p>
@@ -139,18 +161,18 @@ export default function InvestmentsPage() {
                     {holding.quantity} × {formatCents(holding.current_price_cents)} current
                   </p>
                 </div>
-                <p className="font-medium">{formatCents(holding.current_value_cents)}</p>
+                <p className="money text-lg font-semibold">{formatCents(holding.current_value_cents)}</p>
               </div>
               <p className="mt-2 text-sm text-muted">
                 Cost {formatCents(holding.cost_basis_cents)} · Change{' '}
-                <span className={holding.gain_cents < 0 ? 'money font-semibold text-negative' : 'money font-semibold text-pine'}>
+                <span className={holding.gain_cents < 0 ? 'pill pill-bad money' : 'pill pill-ok money'}>
                   {formatCents(holding.gain_cents)}
                 </span>
               </p>
               <div className="mt-2 flex gap-4 text-sm">
                 <button
                   type="button"
-                  className="text-pine"
+                  className="text-action"
                   onClick={() => {
                     setEditingId(holding.id)
                     setForm({
@@ -163,13 +185,14 @@ export default function InvestmentsPage() {
                 >
                   Edit
                 </button>
-                <button type="button" className="text-rose-700" onClick={() => onDelete(holding)}>
+                <button type="button" className="text-danger" onClick={() => onDelete(holding)}>
                   Delete
                 </button>
               </div>
             </li>
           ))}
         </ul>
+        </>
       )}
 
       <form onSubmit={onSave} className="mt-6 grid gap-3 card sm:grid-cols-2">
@@ -189,7 +212,7 @@ export default function InvestmentsPage() {
           Current price per unit
           <input className={fieldClass} value={form.current} onChange={(event) => update('current', event.target.value)} placeholder="22.00" required />
         </label>
-        <button type="submit" disabled={saving} className="self-end btn btn-primary">
+        <button type="submit" disabled={saving} className="self-end justify-self-start btn btn-primary">
           {saving ? 'Saving…' : editingId ? 'Save holding' : 'Add holding'}
         </button>
       </form>

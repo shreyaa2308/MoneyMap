@@ -1,79 +1,233 @@
-import { useState } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth.js'
+import { BrandMark, Icon } from '../icons.jsx'
+import AssistantWidget from './AssistantWidget.jsx'
 
-const linkClass = ({ isActive }) =>
-  isActive
-    ? 'rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-navy'
-    : 'rounded-full px-3 py-1.5 text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white'
+const NAV = [
+  ['/dashboard', 'Dashboard', 'dashboard'],
+  ['/transactions', 'Transactions', 'transactions'],
+  ['/accounts', 'Accounts', 'accounts'],
+  ['/investments', 'Investments', 'investments'],
+  ['/bills', 'Bills', 'bills'],
+  ['/assistant', 'Assistant', 'assistant'],
+]
+
+function useMedia(query) {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches)
+
+  useEffect(() => {
+    const media = window.matchMedia(query)
+    function onChange() {
+      setMatches(media.matches)
+    }
+    onChange()
+    media.addEventListener('change', onChange)
+    return () => media.removeEventListener('change', onChange)
+  }, [query])
+
+  return matches
+}
+
+function readCollapsed() {
+  try {
+    return localStorage.getItem('moneymap_sidebar') === 'collapsed'
+  } catch {
+    return false
+  }
+}
 
 export default function AppShell({ children }) {
-  const { token, logout } = useAuth()
+  const { token, email, logout } = useAuth()
   const navigate = useNavigate()
-  const [menuOpen, setMenuOpen] = useState(false)
+  const location = useLocation()
+  const isDesktop = useMedia('(min-width: 1024px)')
+  const isTablet = useMedia('(min-width: 768px)')
+  const [collapsed, setCollapsed] = useState(readCollapsed)
+  const [menuPath, setMenuPath] = useState(null)
+  const drawerOpen = menuPath != null && menuPath === location.pathname
+  const wide = isDesktop ? !collapsed : drawerOpen
+  const sidebarHidden = !isTablet && !drawerOpen
+
+  function closeDrawer() {
+    setMenuPath(null)
+  }
+
+  function openDrawer() {
+    setMenuPath(location.pathname)
+  }
+
+  useEffect(() => {
+    if (!drawerOpen || isDesktop) {
+      return undefined
+    }
+    function onKey(event) {
+      if (event.key === 'Escape') {
+        setMenuPath(null)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    if (isTablet) {
+      return () => document.removeEventListener('keydown', onKey)
+    }
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previous
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [drawerOpen, isDesktop, isTablet])
 
   function onLogout() {
-    setMenuOpen(false)
+    closeDrawer()
     logout()
     navigate('/login')
   }
 
-  const links = token
-    ? [
-        ['/dashboard', 'Dashboard'],
-        ['/transactions', 'Transactions'],
-        ['/accounts', 'Accounts'],
-        ['/investments', 'Investments'],
-        ['/bills', 'Bills'],
-        ['/assistant', 'Assistant'],
-      ]
-    : [
-        ['/login', 'Log in'],
-        ['/register', 'Register'],
-      ]
-
-  function closeMenu() {
-    setMenuOpen(false)
+  function toggleSidebar() {
+    if (isDesktop) {
+      setCollapsed((current) => {
+        const next = !current
+        try {
+          localStorage.setItem('moneymap_sidebar', next ? 'collapsed' : 'expanded')
+        } catch {
+          // Private browsing can block storage. The toggle still works for this visit.
+        }
+        return next
+      })
+      return
+    }
+    if (drawerOpen) {
+      closeDrawer()
+    } else {
+      openDrawer()
+    }
   }
 
-  const navItems = (
-    <>
-      {links.map(([to, label]) => (
-        <NavLink key={to} to={to} className={linkClass} onClick={closeMenu}>
-          {label}
-        </NavLink>
-      ))}
-      {token ? (
-        <button type="button" onClick={onLogout} className="rounded-full px-3 py-1.5 text-left text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white">
-          Log out
-        </button>
-      ) : null}
-    </>
-  )
+  if (!token) {
+    return (
+      <div className="min-h-screen text-ink">
+        <a className="skip-link" href="#main-content">
+          Skip to content
+        </a>
+        <header className="sticky top-0 z-20 border-b border-white/10 bg-navy text-white">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3.5 sm:px-6">
+            <Link to="/" className="flex items-center gap-2.5">
+              <BrandMark />
+              <span className="text-lg font-semibold tracking-tight">MoneyMap</span>
+            </Link>
+            <nav className="flex items-center gap-1.5" aria-label="Account">
+              <NavLink
+                to="/login"
+                className={({ isActive }) =>
+                  isActive
+                    ? 'rounded-full bg-white/10 px-3 py-2 text-sm font-semibold text-white'
+                    : 'rounded-full px-3 py-2 text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white'
+                }
+              >
+                Log in
+              </NavLink>
+              <NavLink to="/register" className="btn btn-primary px-3 py-2">
+                Register
+              </NavLink>
+            </nav>
+          </div>
+        </header>
+        <div id="main-content" tabIndex={-1}>
+          {children}
+        </div>
+      </div>
+    )
+  }
+
+  const sidebarClass = ['sidebar', collapsed ? 'is-collapsed' : '', drawerOpen ? 'is-open' : ''].filter(Boolean).join(' ')
 
   return (
-    <div className="min-h-screen text-ink">
-      <header className="sticky top-0 z-20 border-b border-white/10 bg-navy text-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <Link to="/" className="flex items-center gap-2.5" onClick={closeMenu}>
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-pine text-sm font-semibold text-white">M</span>
-            <span className="text-lg font-semibold tracking-tight">MoneyMap</span>
+    <div className="app-frame text-ink">
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
+      {drawerOpen && !isDesktop ? (
+        <button type="button" className="sidebar-backdrop" aria-label="Close menu" onClick={closeDrawer} />
+      ) : null}
+      <aside
+        id="app-sidebar"
+        className={sidebarClass}
+        aria-label="Main"
+        aria-hidden={sidebarHidden ? true : undefined}
+        inert={sidebarHidden ? true : undefined}
+      >
+        <div className="sidebar-scroll">
+          <Link to="/" className="brand" title={wide ? undefined : 'MoneyMap'} onClick={closeDrawer}>
+            <BrandMark />
+            <span className="brand-copy">
+              <span className="brand-name">MoneyMap</span>
+              <span className="brand-tag">Personal finance</span>
+            </span>
           </Link>
-          <nav className="hidden flex-wrap items-center gap-1 lg:flex">{navItems}</nav>
+          <nav className="nav-links" aria-label="Primary">
+            {NAV.map(([to, label, icon]) => (
+              <NavLink
+                key={to}
+                to={to}
+                className="nav-link"
+                title={wide ? undefined : label}
+                onClick={closeDrawer}
+              >
+                <Icon name={icon} />
+                <span className="nav-label">{label}</span>
+              </NavLink>
+            ))}
+          </nav>
+          <div className="sidebar-footer">
+            {email ? (
+              <div className="user-chip" title={email}>
+                <span className="user-avatar" aria-hidden="true">
+                  {email.charAt(0).toUpperCase()}
+                </span>
+                <span className="nav-label user-email">{email}</span>
+              </div>
+            ) : null}
+            <button
+              type="button"
+              className="nav-link"
+              aria-expanded={wide}
+              aria-controls="app-sidebar"
+              title={wide ? 'Collapse sidebar' : 'Expand sidebar'}
+              onClick={toggleSidebar}
+            >
+              <span className={wide ? 'inline-flex' : 'inline-flex rotate-180'}>
+                <Icon name="chevron" />
+              </span>
+              <span className="collapse-label">{wide ? 'Collapse' : 'Expand'}</span>
+            </button>
+            <button type="button" className="nav-link" title={wide ? undefined : 'Log out'} onClick={onLogout}>
+              <Icon name="logout" />
+              <span className="nav-label">Log out</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+      <div id="main-content" tabIndex={-1} className="app-main">
+        <header className="mobile-bar flex md:hidden">
           <button
             type="button"
-            className="rounded-full border border-white/20 px-3 py-1.5 text-sm font-medium lg:hidden"
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((open) => !open)}
+            className="btn btn-secondary px-3 py-2"
+            aria-expanded={drawerOpen}
+            aria-controls="app-sidebar"
+            onClick={openDrawer}
           >
-            Menu
+            <Icon name="menu" />
+            <span className="sr-only">Open menu</span>
           </button>
-        </div>
-        {menuOpen ? (
-          <nav className="flex flex-col gap-1 border-t border-white/10 px-4 py-3 text-sm lg:hidden">{navItems}</nav>
-        ) : null}
-      </header>
-      {children}
+          <Link to="/" className="flex items-center gap-2 font-semibold tracking-tight">
+            <BrandMark className="h-8 w-8 text-sm" />
+            MoneyMap
+          </Link>
+        </header>
+        <div className="pb-28">{children}</div>
+      </div>
+      <AssistantWidget />
     </div>
   )
 }

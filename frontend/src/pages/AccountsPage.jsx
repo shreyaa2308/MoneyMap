@@ -129,14 +129,24 @@ export default function AccountsPage() {
 
   return (
     <main className="page">
-      <h1 className="page-title">Accounts</h1>
+      <p className="eyebrow">Balances</p>
+      <h1 className="page-title mt-2">Accounts</h1>
       <p className="lede">
         Balances come from transactions. Net worth adds those balances to manual investment values once.
         Checking, savings, and cash are the only account types. There are no loan or credit-card accounts, so a
         negative balance lowers net worth instead of being tracked as a separate liability.
       </p>
-      {error ? <p className="alert-error mt-4">{error}</p> : null}
-      {loading ? <p className="mt-6 text-faint">Loading accounts…</p> : null}
+      {error ? <p className="alert-error mt-4" role="alert">{error}</p> : null}
+      {loading ? (
+        <div className="mt-6 space-y-3" role="status">
+          <p className="text-faint">Loading accounts…</p>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="skeleton h-28" />
+            <div className="skeleton h-28" />
+            <div className="skeleton h-28" />
+          </div>
+        </div>
+      ) : null}
       {!loading && worth ? (
         <>
           <div className="mt-6 grid gap-4 sm:grid-cols-3">
@@ -150,14 +160,14 @@ export default function AccountsPage() {
               <p className="text-sm text-faint">Investments</p>
               <p className="money mt-3 text-3xl font-semibold">{formatCents(worth.investments_cents)}</p>
             </section>
-            <section className="card bg-navy text-white">
-              <p className="text-sm text-white/70">Net worth</p>
+            <section className="card card-accent">
+              <p className="text-sm text-faint">Net worth</p>
               <p className="money mt-3 text-3xl font-semibold">{formatCents(worth.net_worth_cents)}</p>
             </section>
           </div>
 
           {accounts.length === 0 ? (
-            <p className="mt-6 text-sm text-faint">No accounts yet.</p>
+            <p className="empty-panel mt-6">No accounts yet.</p>
           ) : (
             <ul className="mt-6 list">
               {accounts.map((account) => (
@@ -172,7 +182,7 @@ export default function AccountsPage() {
                     </p>
                     <button
                       type="button"
-                      className="text-sm text-pine"
+                      className="text-action"
                       onClick={() => {
                         setEditingId(account.id)
                         setName(account.name)
@@ -181,7 +191,7 @@ export default function AccountsPage() {
                     >
                       Edit
                     </button>
-                    <button type="button" className="alert-error" onClick={() => onDelete(account)}>
+                    <button type="button" className="text-danger" onClick={() => onDelete(account)}>
                       Delete
                     </button>
                   </div>
@@ -191,7 +201,7 @@ export default function AccountsPage() {
           )}
 
           {pendingDelete ? (
-            <section className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm">
+            <section className="note mt-4">
               <p>
                 {pendingDelete.name} still has transactions. Moving them keeps the history. Deleting them removes
                 those transactions permanently.
@@ -225,7 +235,7 @@ export default function AccountsPage() {
                 <button
                   type="button"
                   onClick={() => confirmDelete('delete')}
-                  className="rounded-md border border-rose-300 px-3 py-2 text-rose-700"
+                  className="btn btn-danger"
                 >
                   Delete transactions too
                 </button>
@@ -256,7 +266,7 @@ export default function AccountsPage() {
             ) : null}
           </form>
           <p className="mt-4 text-sm text-muted">
-            Investment values are entered on the <Link to="/investments" className="text-pine">Investments</Link> page.
+            Investment values are entered on the <Link to="/investments" className="link">Investments</Link> page.
           </p>
         </>
       ) : null}

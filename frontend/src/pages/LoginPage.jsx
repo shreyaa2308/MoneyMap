@@ -36,9 +36,10 @@ export default function LoginPage() {
 
   return (
     <main className="page page-narrow">
-      <h1 className="page-title">Log in</h1>
+      <p className="eyebrow">Account</p>
+      <h1 className="page-title mt-2">Log in</h1>
       <p className="lede">Use your MoneyMap email and password.</p>
-      <form onSubmit={onSubmit} className="mt-6 space-y-4">
+      <form onSubmit={onSubmit} className="card card-raised mt-6 space-y-4">
         <label className="block text-sm font-medium">
           Email
           <input
@@ -74,7 +75,7 @@ export default function LoginPage() {
         Fictional sample login: demo@moneymap.example / demopassword
       </p>
       <p className="mt-4 text-sm text-muted">
-        New here? <Link to="/register" className="text-pine">Create an account</Link>
+        New here? <Link to="/register" className="link">Create an account</Link>
       </p>
     </main>
   )

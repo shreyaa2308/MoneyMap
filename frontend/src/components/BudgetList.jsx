@@ -9,9 +9,9 @@ const statusLabel = {
 }
 
 const statusClass = {
-  under: 'bg-teal-700',
+  under: 'bg-pine',
   approaching: 'bg-amber-500',
-  over: 'bg-rose-700',
+  over: 'bg-negative',
 }
 
 export default function BudgetList({ budgets, month, categories, onChange }) {
@@ -113,15 +113,18 @@ export default function BudgetList({ budgets, month, categories, onChange }) {
             const width = Math.min(budget.percent_used, 100)
             return (
               <li key={budget.id}>
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-medium">{budget.category_name}</p>
-                  <p className="text-sm text-muted">
-                    {formatCents(-budget.spent_cents)} of {formatCents(budget.limit_cents)} · {statusLabel[budget.status]}
-                  </p>
+                  <span className={budget.status === 'over' ? 'pill pill-bad' : budget.status === 'approaching' ? 'pill pill-warn' : 'pill pill-ok'}>
+                    {statusLabel[budget.status]}
+                  </span>
                 </div>
-                <div className="mt-2 h-2 rounded-full bg-slate-200">
+                <p className="mt-1 text-sm text-muted">
+                  {formatCents(-budget.spent_cents)} of {formatCents(budget.limit_cents)}
+                </p>
+                <div className="mt-2 h-2.5 rounded-full bg-white/10" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(budget.percent_used, 100)} aria-label={`${budget.category_name} budget used`}>
                   <div
-                    className={`h-2 rounded-full ${statusClass[budget.status]}`}
+                    className={`h-2.5 rounded-full transition-[width] duration-500 motion-reduce:transition-none ${statusClass[budget.status]}`}
                     style={{ width: `${width}%` }}
                   />
                 </div>
@@ -155,7 +158,7 @@ export default function BudgetList({ budgets, month, categories, onChange }) {
                   <div className="mt-2 flex gap-4 text-sm">
                     <button
                       type="button"
-                      className="text-pine"
+                      className="text-action"
                       onClick={() => {
                         setEditingId(budget.id)
                         setEditAmount(centsToInput(budget.limit_cents))
@@ -163,7 +166,7 @@ export default function BudgetList({ budgets, month, categories, onChange }) {
                     >
                       Edit limit
                     </button>
-                    <button type="button" className="text-rose-700" onClick={() => onDelete(budget)}>
+                    <button type="button" className="text-danger" onClick={() => onDelete(budget)}>
                       Delete
                     </button>
                   </div>

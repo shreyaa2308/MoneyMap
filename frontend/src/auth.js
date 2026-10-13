@@ -9,3 +9,12 @@ export function useAuth() {
   }
   return value
 }
+
+export function friendlyName(email) {
+  const local = String(email || '').split('@')[0]
+  const word = local.split(/[._+-]/)[0]
+  if (!word) {
+    return ''
+  }
+  return word.charAt(0).toUpperCase() + word.slice(1)
+}

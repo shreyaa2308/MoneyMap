@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth.js'
 import CsvImport from '../components/CsvImport.jsx'
@@ -25,10 +25,12 @@ export default function TransactionsPage() {
   const [accounts, setAccounts] = useState([])
   const [categories, setCategories] = useState([])
   const [transactions, setTransactions] = useState([])
+  const [searchParams, setSearchParams] = useSearchParams()
+  const location = useLocation()
   const [search, setSearch] = useState('')
   const [appliedSearch, setAppliedSearch] = useState('')
   const [kind, setKind] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('')
+  const categoryFilter = searchParams.get('category_id') || ''
   const [form, setForm] = useState(blankForm)
   const [editingId, setEditingId] = useState(null)
   const [accountFilter, setAccountFilter] = useState('')
@@ -39,12 +41,39 @@ export default function TransactionsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
+  const scrolledHash = useRef('')
 
   useEffect(() => {
     if (!token) {
       navigate('/login')
     }
   }, [token, navigate])
+
+  useEffect(() => {
+    if (!location.hash || loading) {
+      return
+    }
+    if (scrolledHash.current === location.hash) {
+      return
+    }
+    const node = document.getElementById(location.hash.slice(1))
+    if (!node) {
+      return
+    }
+    scrolledHash.current = location.hash
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    node.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+  }, [location.hash, loading])
+
+  function updateCategoryFilter(value) {
+    const next = new URLSearchParams(searchParams)
+    if (value) {
+      next.set('category_id', value)
+    } else {
+      next.delete('category_id')
+    }
+    setSearchParams(next, { replace: true })
+  }
 
   useEffect(() => {
     if (!token) {
@@ -106,6 +135,7 @@ export default function TransactionsPage() {
   }, [token, appliedSearch, kind, categoryFilter, accountFilter, reloadKey, logout, navigate])
 
   const matchingCategories = categories.filter((category) => category.kind === form.direction)
+  const selectedCategory = categories.find((category) => String(category.id) === categoryFilter)
   const suggestedAccountId = accounts[0] ? String(accounts[0].id) : ''
   const suggestedCategoryId = matchingCategories[0] ? String(matchingCategories[0].id) : ''
   const formAccountId = form.account_id || suggestedAccountId
@@ -254,7 +284,8 @@ export default function TransactionsPage() {
 
   return (
     <main className="page">
-      <h1 className="page-title">Transactions</h1>
+      <p className="eyebrow">Activity</p>
+      <h1 className="page-title mt-2">Transactions</h1>
       <p className="lede">
         {email ? `Signed in as ${email}. ` : null}
         Amounts are saved in cents. Income is positive and expenses are negative.
@@ -270,8 +301,9 @@ export default function TransactionsPage() {
         onImported={() => setReloadKey((value) => value + 1)}
       />
 
+      <section className="card mt-6">
       <form
-        className="mt-6 flex flex-col gap-3 sm:flex-row"
+        className="flex flex-col gap-3 sm:flex-row"
         onSubmit={(event) => {
           event.preventDefault()
           setAppliedSearch(search.trim())
@@ -302,7 +334,7 @@ export default function TransactionsPage() {
           <select
             className={fieldClass}
             value={categoryFilter}
-            onChange={(event) => setCategoryFilter(event.target.value)}
+            onChange={(event) => updateCategoryFilter(event.target.value)}
           >
             <option value="">All categories</option>
             {categories.map((category) => (
@@ -329,20 +361,32 @@ export default function TransactionsPage() {
         </label>
       </div>
 
-      {error ? <p className="alert-error mt-4">{error}</p> : null}
+      {categoryFilter ? (
+        <p className="mt-4 text-sm text-muted">
+          Filtered to {selectedCategory ? selectedCategory.name : 'the selected category'}.{' '}
+          <button type="button" className="font-semibold text-pine-deep hover:underline" onClick={() => updateCategoryFilter('')}>
+            Show all categories
+          </button>
+        </p>
+      ) : null}
+      </section>
+      {error ? <p className="alert-error mt-4" role="alert">{error}</p> : null}
       {message ? <p className="alert-ok mt-4">{message}</p> : null}
 
       <ul className="mt-6 space-y-3">
         {loading && transactions.length === 0 ? (
-          <li className="text-faint">Loading transactions…</li>
+          <li className="space-y-3" role="status">
+            <p className="text-faint">Loading transactions…</p>
+            <div className="skeleton h-20" />
+          </li>
         ) : null}
         {!loading && transactions.length === 0 ? (
-          <li className="text-faint">
+          <li className="empty-panel">
             {error ? 'Transactions could not be loaded.' : 'No transactions match.'}
           </li>
         ) : null}
         {transactions.map((transaction) => (
-          <li key={transaction.id} className="card">
+          <li key={transaction.id} className="card card-hover">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="font-medium">{transaction.description}</p>
@@ -355,10 +399,10 @@ export default function TransactionsPage() {
               </p>
             </div>
             <div className="mt-3 flex gap-4 text-sm">
-              <button type="button" onClick={() => startEdit(transaction)} disabled={saving} className="text-pine disabled:opacity-50">
+              <button type="button" onClick={() => startEdit(transaction)} disabled={saving} className="text-action">
                 Edit
               </button>
-              <button type="button" onClick={() => onDelete(transaction)} disabled={saving} className="text-rose-700 disabled:opacity-50">
+              <button type="button" onClick={() => onDelete(transaction)} disabled={saving} className="text-danger">
                 Delete
               </button>
             </div>
@@ -366,7 +410,7 @@ export default function TransactionsPage() {
         ))}
       </ul>
 
-      <form onSubmit={onSave} className="mt-8 card">
+      <form id="add-transaction" onSubmit={onSave} className="mt-8 card scroll-mt-24">
         <h2 className="text-lg font-semibold">{editingId ? 'Edit transaction' : 'Add transaction'}</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-medium sm:col-span-2">
