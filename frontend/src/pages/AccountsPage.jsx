@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth.js'
+import BankConnection from '../components/BankConnection.jsx'
 import { formatCents } from '../money'
 
 const fieldClass = 'field'
@@ -137,6 +138,7 @@ export default function AccountsPage() {
         negative balance lowers net worth instead of being tracked as a separate liability.
       </p>
       {error ? <p className="alert-error mt-4" role="alert">{error}</p> : null}
+      {token ? <BankConnection onChanged={() => setReloadKey((value) => value + 1)} /> : null}
       {loading ? (
         <div className="mt-6 space-y-3" role="status">
           <p className="text-faint">Loading accounts…</p>

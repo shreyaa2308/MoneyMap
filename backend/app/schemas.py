@@ -329,3 +329,48 @@ class ChatResponse(BaseModel):
 class AIStatusResponse(BaseModel):
     available: bool
     message: str
+
+
+class PlaidConnectionResponse(BaseModel):
+    id: int
+    institution_name: str
+
+
+class PlaidStatusResponse(BaseModel):
+    available: bool
+    message: str
+    connections: list[PlaidConnectionResponse]
+
+
+class PlaidLinkTokenResponse(BaseModel):
+    link_token: str
+
+
+class PlaidExchangeRequest(BaseModel):
+    public_token: str = Field(min_length=1, max_length=500)
+    institution_name: str = ""
+
+    @field_validator("public_token")
+    @classmethod
+    def clean_public_token(cls, value):
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("A bank connection token is required")
+        return cleaned
+
+    @field_validator("institution_name")
+    @classmethod
+    def clean_institution_name(cls, value):
+        return " ".join(value.split())[:255]
+
+
+class PlaidExchangeResponse(BaseModel):
+    id: int
+    institution_name: str
+
+
+class PlaidSyncResponse(BaseModel):
+    added: int
+    updated: int
+    removed: int
+    skipped: int

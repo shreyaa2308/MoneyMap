@@ -6,7 +6,7 @@ Money is stored as integer cents. A transaction amount is signed:
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import mapped_column, relationship
 
 from app.database import Base
@@ -30,6 +30,7 @@ class User(Base):
     budgets = relationship("Budget", back_populates="user")
     holdings = relationship("Holding", back_populates="user")
     bills = relationship("Bill", back_populates="user")
+    plaid_items = relationship("PlaidItem", back_populates="user")
 
 
 class Account(Base):
@@ -155,3 +156,72 @@ class BillPayment(Base):
     created_at = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
     bill = relationship("Bill", back_populates="payments")
+
+
+class PlaidItem(Base):
+    """One Plaid item for one user. The access token never leaves the server."""
+
+    __tablename__ = "plaid_items"
+    __table_args__ = (UniqueConstraint("item_id", name="one_row_per_plaid_item"),)
+
+    id = mapped_column(Integer, primary_key=True)
+    user_id = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    item_id = mapped_column(String(255), nullable=False)
+    access_token_encrypted = mapped_column(Text, nullable=False)
+    institution_name = mapped_column(String(255), nullable=False, default="")
+    cursor = mapped_column(Text, nullable=True)
+    created_at = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+    user = relationship("User", back_populates="plaid_items")
+    account_links = relationship(
+        "PlaidAccountLink",
+        back_populates="plaid_item",
+        cascade="all, delete-orphan",
+    )
+    transaction_links = relationship(
+        "PlaidTransactionLink",
+        back_populates="plaid_item",
+        cascade="all, delete-orphan",
+    )
+
+
+class PlaidAccountLink(Base):
+    """Maps a Plaid depository account onto an existing MoneyMap account row."""
+
+    __tablename__ = "plaid_accounts"
+    __table_args__ = (
+        UniqueConstraint("user_id", "plaid_account_id", name="one_plaid_account_per_user"),
+    )
+
+    id = mapped_column(Integer, primary_key=True)
+    user_id = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    plaid_item_id = mapped_column(ForeignKey("plaid_items.id", ondelete="CASCADE"), nullable=False, index=True)
+    plaid_account_id = mapped_column(String(255), nullable=False)
+    account_id = mapped_column(ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    plaid_item = relationship("PlaidItem", back_populates="account_links")
+
+
+class PlaidTransactionLink(Base):
+    """Dedup key for a synced transaction. The ledger row stays in transactions."""
+
+    __tablename__ = "plaid_transactions"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "plaid_transaction_id",
+            name="one_plaid_transaction_per_user",
+        ),
+    )
+
+    id = mapped_column(Integer, primary_key=True)
+    user_id = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    plaid_item_id = mapped_column(ForeignKey("plaid_items.id", ondelete="CASCADE"), nullable=False, index=True)
+    plaid_transaction_id = mapped_column(String(255), nullable=False)
+    transaction_id = mapped_column(
+        ForeignKey("transactions.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+
+    plaid_item = relationship("PlaidItem", back_populates="transaction_links")

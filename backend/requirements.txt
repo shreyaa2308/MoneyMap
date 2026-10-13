@@ -8,3 +8,4 @@ httpx==0.28.1
 python-multipart==0.0.20
 openai==3.29.0
 python-dotenv==1.2.4
+cryptography==50.0.2

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Account, Holding, Transaction, User
+from app.models import Account, Holding, PlaidAccountLink, Transaction, User
 from app.quantities import format_quantity, value_cents
 from app.routers.auth import get_current_user
 from app.routers.transactions import owned_account
@@ -130,10 +130,26 @@ def delete_account(
         )
         target.balance_cents += account.balance_cents
         account.balance_cents = 0
+        (
+            db.query(PlaidAccountLink)
+            .filter(PlaidAccountLink.user_id == user.id, PlaidAccountLink.account_id == account.id)
+            .update({PlaidAccountLink.account_id: target.id}, synchronize_session=False)
+        )
     elif confirm == "delete-transactions":
         (
             db.query(Transaction)
             .filter(Transaction.user_id == user.id, Transaction.account_id == account.id)
+            .delete(synchronize_session=False)
+        )
+        (
+            db.query(PlaidAccountLink)
+            .filter(PlaidAccountLink.user_id == user.id, PlaidAccountLink.account_id == account.id)
+            .delete(synchronize_session=False)
+        )
+    else:
+        (
+            db.query(PlaidAccountLink)
+            .filter(PlaidAccountLink.user_id == user.id, PlaidAccountLink.account_id == account.id)
             .delete(synchronize_session=False)
         )
     db.expire(account, ["transactions"])

@@ -19,6 +19,7 @@ from app.routers.budgets import router as budgets_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.holdings import router as holdings_router
 from app.routers.imports import router as imports_router
+from app.routers.plaid import router as plaid_router
 from app.routers.transactions import router as transactions_router
 from app.seed import seed_demo_budgets, seed_demo_data, seed_demo_extras
 
@@ -47,6 +48,7 @@ app.include_router(accounts_router)
 app.include_router(holdings_router)
 app.include_router(bills_router)
 app.include_router(imports_router)
+app.include_router(plaid_router)
 app.include_router(budgets_router)
 app.include_router(dashboard_router)
 app.include_router(ai_router)

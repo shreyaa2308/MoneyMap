@@ -20,6 +20,9 @@ def test_init_creates_tables(db):
         "holdings",
         "bills",
         "bill_payments",
+        "plaid_items",
+        "plaid_accounts",
+        "plaid_transactions",
     }
 
 

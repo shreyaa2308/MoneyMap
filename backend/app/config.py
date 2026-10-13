@@ -16,15 +16,26 @@ DEVELOPMENT_ENVS = {"development", "dev", "test"}
 DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
 
 _environment_loaded = False
+_environment_mtime = None
 
 
 def load_environment():
-    """Load backend/.env once, without overriding variables already set."""
-    global _environment_loaded
-    if _environment_loaded:
+    """Load backend/.env, and again after that file changes.
+
+    Values already set in the process environment are left as they are.
+    A blank or missing value can be filled from the file on a later read.
+    """
+    global _environment_loaded, _environment_mtime
+    env_path = BACKEND_DIR / ".env"
+    try:
+        mtime = env_path.stat().st_mtime
+    except OSError:
+        mtime = None
+    if _environment_loaded and mtime == _environment_mtime:
         return
-    load_dotenv(BACKEND_DIR / ".env", override=False)
+    load_dotenv(env_path, override=False)
     _environment_loaded = True
+    _environment_mtime = mtime
 
 
 def environment_name():
@@ -62,6 +73,29 @@ def openai_settings():
         "model": model,
         "timeout": timeout,
         "max_output_tokens": max_output_tokens,
+    }
+
+
+PLAID_HOSTS = {
+    "sandbox": "https://sandbox.plaid.com",
+    "development": "https://development.plaid.com",
+    "production": "https://production.plaid.com",
+}
+
+
+def plaid_settings():
+    """Read optional Plaid settings. Missing keys leave bank connection turned off."""
+    load_environment()
+    client_id = os.environ.get("PLAID_CLIENT_ID", "").strip()
+    secret = os.environ.get("PLAID_SECRET", "").strip()
+    env_name = os.environ.get("PLAID_ENV", "sandbox").strip().lower() or "sandbox"
+    known = env_name in PLAID_HOSTS
+    return {
+        "client_id": client_id,
+        "secret": secret,
+        "env": env_name if known else "",
+        "host": PLAID_HOSTS.get(env_name, ""),
+        "configured": bool(client_id and secret and known),
     }
 
 

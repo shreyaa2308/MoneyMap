@@ -1,6 +1,6 @@
 # MoneyMap
 
-MoneyMap is a local personal finance app. The website talks to the API through a local proxy, and the API stores each user's accounts, transactions, budgets, bills, and manual investments in SQLite. A read-only assistant can explain those saved records. The app does not connect to banks or live markets, and it is not a production deployment.
+MoneyMap is a local personal finance app. The website talks to the API through a local proxy, and the API stores each user's accounts, transactions, budgets, bills, and manual investments in SQLite. A read-only assistant can explain those saved records. An optional Plaid sandbox connection can import checking and savings transactions. The app does not connect to live markets, and it is not a production deployment.
 
 ## Features
 
@@ -11,6 +11,7 @@ MoneyMap is a local personal finance app. The website talks to the API through a
 - Simulated investment holdings with prices you type in.
 - Scheduled bills. Marking one paid creates a single expense.
 - CSV preview and import.
+- Optional Plaid sandbox bank connection on Accounts. CSV import and manual entry keep working when it is off.
 - An optional assistant that explains calculated totals. It cannot change records.
 
 ## Layout
@@ -47,8 +48,11 @@ cp backend/.env.example backend/.env
 | `OPENAI_MODEL` | Model name. Defaults to `gpt-4o-mini` when unset. |
 | `OPENAI_TIMEOUT` | Seconds to wait for OpenAI. Defaults to 20, clamped between 1 and 60. |
 | `OPENAI_MAX_OUTPUT_TOKENS` | Reply length. Defaults to 400, clamped between 50 and 800. |
+| `PLAID_CLIENT_ID` | Optional Plaid client id. Leave it blank to keep bank connection off. |
+| `PLAID_SECRET` | Optional Plaid secret. The backend reads it. The browser never receives it. |
+| `PLAID_ENV` | `sandbox`, `development`, or `production`. Defaults to `sandbox`. |
 
-The API key is read only by the backend. It is not sent to the browser, and there is no `VITE_OPENAI_API_KEY`.
+The OpenAI key and the Plaid secret are read only by the backend. They are not sent to the browser. There is no `VITE_OPENAI_API_KEY` and no `VITE_PLAID_SECRET`. Plaid access tokens are encrypted with a key derived from `MONEYMAP_JWT_SECRET` before they are stored. Changing that secret means an existing bank connection has to be connected again.
 
 ## Run the backend
 
@@ -81,7 +85,7 @@ Open http://127.0.0.1:8000/docs to see the routes in the FastAPI documentation p
 
 ## Database
 
-Starting the backend creates `backend/moneymap.db` if that file is missing, and creates any tables that are not there yet. Startup does not delete or rewrite users, accounts, categories, transactions, budgets, holdings, bills, or payments. `create_all()` does not add columns to tables that already exist. The checked-in models match the tables in the local database, so no migration was required.
+Starting the backend creates `backend/moneymap.db` if that file is missing, and creates any tables that are not there yet. Startup does not delete or rewrite users, accounts, categories, transactions, budgets, holdings, bills, or payments. `create_all()` does not add columns to tables that already exist. Optional Plaid uses three new tables, `plaid_items`, `plaid_accounts`, and `plaid_transactions`. The next backend start creates those tables if they are missing. It does not add columns to `accounts` or `transactions`, and it does not rewrite existing rows.
 
 The database file is local and is not committed. Do not delete it if you want to keep your records. After a laptop restart, start the backend again and the same file is opened.
 
@@ -133,6 +137,7 @@ Routes that require a login token:
 - `GET /api/holdings`, `POST /api/holdings`, `PUT /api/holdings/{holding_id}`, `DELETE /api/holdings/{holding_id}`
 - `GET /api/bills`, `POST /api/bills`, `PUT /api/bills/{bill_id}`, `DELETE /api/bills/{bill_id}`, `POST /api/bills/{bill_id}/pay`, `GET /api/bills/payments`
 - `POST /api/imports/preview`, `POST /api/imports`
+- `GET /api/plaid/status`, `POST /api/plaid/link-token`, `POST /api/plaid/items`, `POST /api/plaid/items/{connection_id}/sync`, `DELETE /api/plaid/items/{connection_id}`
 - `GET /api/budgets?month=YYYY-MM`, `POST /api/budgets`, `PUT /api/budgets/{budget_id}`, `DELETE /api/budgets/{budget_id}`
 - `GET /api/dashboard?month=YYYY-MM`
 - `GET /api/ai/status`, `POST /api/ai/chat`
@@ -156,6 +161,22 @@ date,description,amount,type,category,account
 A bank export can use common headers instead: `transaction date` or `posted date`, `description` or `memo`, `amount`, and `transaction type` (`Debit` or `Credit`). Separate `Debit` and `Credit` columns also work. Dates can be `YYYY-MM-DD` or `MM/DD/YYYY`. A negative amount is an expense. If the file has no account or category column, choose them on the Transactions page before preview. Those choices are used only for rows that do not name an account or category. A fictional sample is at `frontend/public/sample-bank-statement.csv`.
 
 A row that matches an existing transaction, or an earlier row in the same file, on date, description, amount, category, and account is skipped as a duplicate.
+
+## Connect a sandbox bank
+
+Bank connection is optional. Leave `PLAID_CLIENT_ID` and `PLAID_SECRET` blank and Accounts still works with manual accounts and CSV import.
+
+To turn it on, create sandbox keys at https://dashboard.plaid.com/developers/keys and fill them in on `backend/.env`:
+
+```bash
+PLAID_CLIENT_ID=your-sandbox-client-id
+PLAID_SECRET=your-sandbox-secret
+PLAID_ENV=sandbox
+```
+
+Restart the backend. On Accounts, choose Connect bank. Plaid Link opens from Plaid's script. In the sandbox window, use the published test login `user_good` / `pass_good`. MoneyMap does not ask for that password itself.
+
+Plaid's positive amounts are money leaving the account. MoneyMap stores those as negative cents, and deposits as positive cents. Checking and savings are imported. Other depository subtypes are saved as cash. Credit cards and loans are skipped. The account balance stays the sum of its transactions, including ones you add or edit later. A Plaid transaction id is stored once per user, so syncing again does not copy the same row. Disconnect revokes the Plaid item when the keys are still set. Transactions already saved stay in MoneyMap.
 
 ## Assistant
 
@@ -204,7 +225,7 @@ From the backend folder, with the virtual environment active:
 python -m pytest
 ```
 
-The tests use a temporary database, so they do not delete `backend/moneymap.db`. They cover registration, login, transactions, budgets, dashboard totals, accounts, net worth, holdings, bills, CSV import, the assistant with mocked responses, and the rule that one user cannot read another user's records.
+The tests use a temporary database, so they do not delete `backend/moneymap.db`. They cover registration, login, transactions, budgets, dashboard totals, accounts, net worth, holdings, bills, CSV import, the assistant with mocked responses, Plaid with mocked responses, and the rule that one user cannot read another user's records. Starting the test app creates any missing tables in the local database file. It does not erase that file.
 
 ## After a restart
 
@@ -213,7 +234,7 @@ Start the backend, then the frontend, using the commands above. Your SQLite file
 ## Limitations
 
 - Investments are manual. There is no live price feed and no brokerage connection.
-- There is no bank connection and no place to enter bank credentials.
+- Bank connection is optional and uses Plaid. MoneyMap does not collect a bank username or password. Credit cards and loans are not imported.
 - There are no loan or credit-card accounts.
 - Marking a bill paid writes a normal expense. It does not send money anywhere.
 - There is no transfer type. Every saved transaction counts as income or an expense by its sign.
