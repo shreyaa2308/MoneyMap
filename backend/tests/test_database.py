@@ -3,30 +3,24 @@ from datetime import date
 import pytest
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import sessionmaker
 
 from app.database import create_db_engine
 from app.models import Account, Base, Category, Transaction, User
 
 
-@pytest.fixture
-def db(tmp_path):
-    engine = create_db_engine(f"sqlite:///{tmp_path / 'test.db'}")
-    Base.metadata.create_all(bind=engine)
-    Session = sessionmaker(bind=engine, autoflush=False, autocommit=False)
-    session = Session()
-    try:
-        yield engine, session
-    finally:
-        session.rollback()
-        session.close()
-        engine.dispose()
-
-
 def test_init_creates_tables(db):
     engine, _session = db
     table_names = set(inspect(engine).get_table_names())
-    assert table_names == {"users", "accounts", "categories", "transactions"}
+    assert table_names == {
+        "users",
+        "accounts",
+        "categories",
+        "transactions",
+        "budgets",
+        "holdings",
+        "bills",
+        "bill_payments",
+    }
 
 
 def test_foreign_keys_are_enforced(db):
@@ -76,3 +70,29 @@ def test_related_rows_can_be_saved(db):
     saved = session.query(Transaction).one()
     assert saved.amount_cents == 1500
     assert isinstance(saved.amount_cents, int)
+
+
+def test_create_all_adds_tables_without_erasing_users(tmp_path):
+    engine = create_db_engine(f"sqlite:///{tmp_path / 'existing.db'}")
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE users ("
+                "id INTEGER PRIMARY KEY, email VARCHAR(255), "
+                "password_hash VARCHAR(255), created_at DATETIME)"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO users (email, password_hash, created_at) "
+                "VALUES ('ada@example.com', 'hash', '2026-01-01')"
+            )
+        )
+    Base.metadata.create_all(bind=engine)
+    with engine.connect() as connection:
+        email = connection.execute(text("SELECT email FROM users")).scalar()
+        tables = set(inspect(engine).get_table_names())
+    engine.dispose()
+    assert email == "ada@example.com"
+    assert "holdings" in tables
+    assert "bills" in tables

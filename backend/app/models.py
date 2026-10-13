@@ -1,7 +1,4 @@
-"""Initial database tables.
-
-These tables store the app's future data. Nothing in this file creates
-users, accounts, or transactions. Login and money features come later.
+"""Database tables.
 
 Money is stored as integer cents. A transaction amount is signed:
 1500 is $15.00 in, and -1500 is $15.00 out.
@@ -9,7 +6,7 @@ Money is stored as integer cents. A transaction amount is signed:
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import mapped_column, relationship
 
 from app.database import Base
@@ -30,6 +27,9 @@ class User(Base):
     accounts = relationship("Account", back_populates="user")
     categories = relationship("Category", back_populates="user")
     transactions = relationship("Transaction", back_populates="user")
+    budgets = relationship("Budget", back_populates="user")
+    holdings = relationship("Holding", back_populates="user")
+    bills = relationship("Bill", back_populates="user")
 
 
 class Account(Base):
@@ -57,6 +57,7 @@ class Category(Base):
 
     user = relationship("User", back_populates="categories")
     transactions = relationship("Transaction", back_populates="category")
+    budgets = relationship("Budget", back_populates="category")
 
 
 class Transaction(Base):
@@ -74,3 +75,83 @@ class Transaction(Base):
     user = relationship("User", back_populates="transactions")
     account = relationship("Account", back_populates="transactions")
     category = relationship("Category", back_populates="transactions")
+
+
+class Budget(Base):
+    """A spending limit for one expense category in one calendar month."""
+
+    __tablename__ = "budgets"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "category_id",
+            "year",
+            "month",
+            name="one_budget_per_category_month",
+        ),
+    )
+
+    id = mapped_column(Integer, primary_key=True)
+    user_id = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    category_id = mapped_column(ForeignKey("categories.id"), nullable=False, index=True)
+    year = mapped_column(Integer, nullable=False)
+    month = mapped_column(Integer, nullable=False)
+    limit_cents = mapped_column(Integer, nullable=False)
+    created_at = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+    user = relationship("User", back_populates="budgets")
+    category = relationship("Category", back_populates="budgets")
+
+
+class Holding(Base):
+    """A manually entered investment. Prices are not fetched from a market."""
+
+    __tablename__ = "holdings"
+
+    id = mapped_column(Integer, primary_key=True)
+    user_id = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    name = mapped_column(String(100), nullable=False)
+    quantity_scaled = mapped_column(Integer, nullable=False)
+    purchase_price_cents = mapped_column(Integer, nullable=False)
+    current_price_cents = mapped_column(Integer, nullable=False)
+    created_at = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+    user = relationship("User", back_populates="holdings")
+
+
+class Bill(Base):
+    """A recurring bill. Marking it paid is a separate, explicit action."""
+
+    __tablename__ = "bills"
+
+    id = mapped_column(Integer, primary_key=True)
+    user_id = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    category_id = mapped_column(ForeignKey("categories.id"), nullable=False, index=True)
+    name = mapped_column(String(100), nullable=False)
+    amount_cents = mapped_column(Integer, nullable=False)
+    frequency = mapped_column(String(20), nullable=False)
+    next_due_on = mapped_column(Date, nullable=False)
+    created_at = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+    user = relationship("User", back_populates="bills")
+    category = relationship("Category")
+    payments = relationship("BillPayment", back_populates="bill")
+
+
+class BillPayment(Base):
+    """One payment for one due date. The same due date cannot be paid twice."""
+
+    __tablename__ = "bill_payments"
+    __table_args__ = (
+        UniqueConstraint("bill_id", "due_on", name="one_payment_per_due_date"),
+    )
+
+    id = mapped_column(Integer, primary_key=True)
+    user_id = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    bill_id = mapped_column(ForeignKey("bills.id"), nullable=False, index=True)
+    transaction_id = mapped_column(ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True)
+    due_on = mapped_column(Date, nullable=False)
+    amount_cents = mapped_column(Integer, nullable=False)
+    created_at = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+    bill = relationship("Bill", back_populates="payments")

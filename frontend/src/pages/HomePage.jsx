@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useAuth } from '../auth.js'
 
 export default function HomePage() {
+  const { token } = useAuth()
   const [backendStatus, setBackendStatus] = useState('checking')
 
   useEffect(() => {
@@ -35,20 +38,34 @@ export default function HomePage() {
   }, [])
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
-      <div className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6 py-16">
-        <p className="text-sm font-medium tracking-wide text-teal-800">
-          Personal finance
-        </p>
-        <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">
-          MoneyMap
-        </h1>
-        <p className="mt-4 max-w-xl text-lg leading-relaxed text-slate-600">
-          A local place to see your money. This page is only the shell.
-          Summaries, transactions, and charts come in later blocks.
-        </p>
-        <p className="mt-6 text-sm text-slate-500">Backend: {backendStatus}</p>
+    <main className="mx-auto flex min-h-[70vh] max-w-3xl flex-col justify-center px-6 py-16">
+      <p className="text-sm font-medium tracking-wide text-teal-800">Personal finance</p>
+      <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">MoneyMap</h1>
+      <p className="mt-4 max-w-xl text-lg leading-relaxed text-slate-600">
+        Track accounts, transactions, budgets, bills, and manual investments on this computer.
+      </p>
+      <div className="mt-6 flex flex-wrap gap-3">
+        {token ? (
+          <>
+            <Link to="/dashboard" className="rounded-md bg-teal-800 px-4 py-2 text-sm font-medium text-white">
+              Open dashboard
+            </Link>
+            <Link to="/transactions" className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium">
+              View transactions
+            </Link>
+          </>
+        ) : (
+          <>
+            <Link to="/login" className="rounded-md bg-teal-800 px-4 py-2 text-sm font-medium text-white">
+              Log in
+            </Link>
+            <Link to="/register" className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium">
+              Register
+            </Link>
+          </>
+        )}
       </div>
+      <p className="mt-6 text-sm text-slate-500">Backend: {backendStatus}</p>
     </main>
   )
 }

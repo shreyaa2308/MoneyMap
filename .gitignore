@@ -14,3 +14,7 @@ dist/
 
 # Created when the backend starts. Each machine has its own copy.
 backend/moneymap.db
+*.db-journal
+.env
+.env.*
+!.env.example
